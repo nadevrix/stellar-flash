@@ -1,0 +1,26 @@
+{
+  "name": "stellar-flash",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stellar Flash · rollup de pagos con finalidad instantánea sobre Stellar (secuenciador, protocolo y SDK)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node sequencer/src/index.ts",
+    "demo": "node scripts/demo.ts",
+    "vectors": "node scripts/gen-vectors.ts",
+    "test": "node --test --test-concurrency=1 'protocol/src/**/*.test.ts' 'sequencer/src/**/*.test.ts' 'sdk/src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "contract:test": "cd contracts && cargo test",
+    "contract:build": "cd contracts && cargo build --target wasm32v1-none --release -p flash-bridge"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^17.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

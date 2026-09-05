@@ -1,0 +1,18 @@
+[package]
+name = "flash-bridge"
+description = "Stellar Flash · contrato puente/settlement del rollup de pagos sobre Stellar (Soroban)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
