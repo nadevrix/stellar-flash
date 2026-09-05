@@ -9,3 +9,5 @@ data/*.db-*
 .tools/
 dist/
 .playwright-mcp/
+sdk/dist/
+*.tgz

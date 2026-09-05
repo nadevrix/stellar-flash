@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "..",
+    "outDir": "dist/types"
+  },
+  "include": ["src/**/*.ts", "../protocol/src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "../protocol/src/**/*.test.ts"]
+}

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Keypair, Networks } from '@stellar/stellar-sdk';
-import { domainSeparator, fromHex, verifyProof, withdrawalLeaf } from '../../protocol/src/index.ts';
+import { domainSeparator, fromHex, toHex, verifyProof, withdrawalLeaf } from '../../protocol/src/index.ts';
 import { Sequencer } from '../../sequencer/src/core/sequencer.ts';
 import { Store } from '../../sequencer/src/db/store.ts';
 import { SettlementEngine } from '../../sequencer/src/settlement/engine.ts';
@@ -50,6 +50,18 @@ test('SDK: transfer/withdraw contra un secuenciador real (mock L1) y prueba de r
     l1.advanceLedgers(5);
     await engine.tick();
     assert.equal((await bobFlash.getWithdrawalProof(w.id)).claimable, true);
+
+    // Flujo de wallet (SEP-53): el cliente NO tiene la llave; construye el mensaje, lo firma
+    // quien sea dueño de la cuenta con `signMessage` — que es lo que hacen Freighter, xBull o
+    // Lobstr — y se envía la firma. Es el camino que usará la dapp de puente.
+    const walletless = new FlashClient({ baseUrl });
+    const { message, tx } = await walletless.signingMessage({
+      type: 'transfer', from: alice.publicKey(), to: bob.publicKey(), token: TOKEN, amount: 33n,
+    });
+    const signature = toHex(new Uint8Array(alice.signMessage(Buffer.from(message))));
+    const walletReceipt = await walletless.submitSigned({ ...tx, signature });
+    assert.equal(walletReceipt.status, 'confirmed');
+    assert.equal(await flash.getBalance(alice.publicKey(), TOKEN), 667n, '700 - 33');
   } finally {
     server.close();
   }

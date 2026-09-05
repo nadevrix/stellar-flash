@@ -1,0 +1,26 @@
+{
+  "name": "stellar-flash-sdk",
+  "version": "0.1.0",
+  "description": "Cliente para Stellar Flash: pagos con confirmación en milisegundos sobre Stellar, con las mismas llaves G… y liquidación en L1.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/types/sdk/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/sdk/src/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=20" },
+  "keywords": ["stellar", "soroban", "rollup", "payments", "layer2", "fxlm"],
+  "repository": { "type": "git", "url": "git+https://github.com/nadevrix/stellar-flash.git", "directory": "sdk" },
+  "homepage": "https://stellar-flash.onrender.com",
+  "peerDependencies": { "@stellar/stellar-sdk": "^17.0.0" },
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}

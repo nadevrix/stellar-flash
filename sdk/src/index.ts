@@ -9,7 +9,7 @@
  * firmar para que la firme el usuario (Freighter, Keypair, etc.).
  */
 import { Address, Contract, Keypair, TransactionBuilder, nativeToScVal, rpc, xdr } from '@stellar/stellar-sdk';
-import { domainSeparator, fromHex, signTx, toHex, type TransferTx, type WithdrawTx } from '../../protocol/src/index.ts';
+import { domainSeparator, fromHex, signingMessage, signTx, toHex, type SignedTx, type TransferTx, type WithdrawTx } from '../../protocol/src/index.ts';
 
 export interface FlashClientOptions {
   /** URL base del secuenciador, p. ej. http://localhost:8787 */
@@ -120,6 +120,31 @@ export class FlashClient {
     const nonce = p.nonce ?? (await this.getNonce(from, p.token));
     const tx: WithdrawTx = signTx({ type: 'withdraw', from, token: p.token, amount: p.amount, nonce, l1Recipient: p.l1Recipient ?? from }, kp, await this.domain());
     return this.submitSigned({ ...tx, amount: tx.amount.toString(), nonce: tx.nonce.toString(), signature: toHex(tx.signature) });
+  }
+
+  /**
+   * Prepara un pago para que lo firme la wallet del usuario (Freighter, xBull, Lobstr…).
+   * Devuelve los bytes exactos que hay que pasar a `signMessage` (SEP-53) y la tx sin firma;
+   * añade la firma en hex y envíala con `submitSigned`. No requiere keypair.
+   */
+  async signingMessage(
+    p:
+      | { type: 'transfer'; from?: string; to: string; token: string; amount: bigint; nonce?: bigint }
+      | { type: 'withdraw'; from?: string; token: string; amount: bigint; l1Recipient?: string; nonce?: bigint },
+  ): Promise<{ message: Uint8Array; tx: Record<string, unknown> }> {
+    const from = p.from ?? this.keypair?.publicKey();
+    if (!from) throw new Error('signingMessage necesita `from` o un keypair en el cliente');
+    const nonce = p.nonce ?? (await this.getNonce(from, p.token));
+    const unsigned =
+      p.type === 'transfer'
+        ? { type: 'transfer' as const, from, to: p.to, token: p.token, amount: p.amount, nonce }
+        : { type: 'withdraw' as const, from, token: p.token, amount: p.amount, nonce, l1Recipient: p.l1Recipient ?? from };
+    const message = signingMessage(unsigned as Omit<SignedTx, 'signature'>, await this.domain());
+    const tx: Record<string, unknown> =
+      unsigned.type === 'transfer'
+        ? { type: 'transfer', from, to: unsigned.to, token: unsigned.token, amount: unsigned.amount.toString(), nonce: nonce.toString() }
+        : { type: 'withdraw', from, token: unsigned.token, amount: unsigned.amount.toString(), nonce: nonce.toString(), l1Recipient: unsigned.l1Recipient };
+    return { message, tx };
   }
 
   async submitSigned(txJson: Record<string, unknown>): Promise<FlashReceipt> {

@@ -33,7 +33,7 @@ function Nav() {
           <a href="#problem" className="transition hover:text-ink">The problem</a>
           <a href="#how" className="transition hover:text-ink">How it works</a>
           <a href="#live" className="transition hover:text-ink">Live</a>
-          <a href="#developers" className="transition hover:text-ink">Developers</a>
+          <a href="/developers" className="transition hover:text-ink">Docs</a>
           <a href="/explorer" className="transition hover:text-ink">Explorer</a>
         </div>
         <div className="flex items-center gap-3">
@@ -246,7 +246,13 @@ function Developers() {
                 </li>
               ))}
             </ul>
-            <div className="mt-10"><CtaPill href={GITHUB} external>Read the source</CtaPill></div>
+            <div className="mt-10 flex flex-wrap gap-3">
+              <CtaPill href="/developers">Read the docs</CtaPill>
+              <a href={GITHUB} target="_blank" rel="noreferrer"
+                 className="inline-flex items-center rounded-full border border-white/20 px-6 py-3 font-medium transition hover:border-white/40 hover:bg-white/5">
+                Source on GitHub
+              </a>
+            </div>
           </div>
           <div className="overflow-hidden rounded-2xl border border-white/12 bg-[#0A0A0A]">
             <div className="flex items-center gap-2 border-b border-white/8 px-5 py-3">
@@ -256,7 +262,7 @@ function Developers() {
               <span className="ml-2 font-mono text-xs text-white/35">pay.ts</span>
             </div>
             <pre className="overflow-x-auto p-6 font-mono text-[13px] leading-relaxed">
-<code>{`import { FlashClient, Keypair } from '@stellar-flash/sdk';
+<code>{`import { FlashClient, Keypair } from 'stellar-flash-sdk';
 
 const flash = new FlashClient({
   baseUrl: '`}<span className="text-teal">{SEQUENCER_URL.replace('https://', '')}</span>{`',
