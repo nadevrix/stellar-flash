@@ -321,3 +321,44 @@ test('API HTTP: health, submit, cuenta, lote y prueba de retiro', async () => {
     server.close();
   }
 });
+
+test('seguridad: un RPC comprometido no puede acuñar FXLM sin respaldo', async () => {
+  const seqr = newSequencer();
+  const l1 = new MockL1Client({ challengePeriodLedgers: 20 });
+  const { engine, log } = engineWith(seqr, l1);
+  const alice = Keypair.random();
+  const atacante = Keypair.random();
+
+  // Un depósito legítimo: el contrato lo registra de verdad.
+  l1.deposit(alice.publicKey(), TOKEN, 10_000n, alice.publicKey());
+  await engine.tick();
+  assert.equal(seqr.state.get(alice.publicKey(), TOKEN).balance, 10_000n);
+
+  // Ahora el ataque: el RPC anuncia un depósito de 1M que NUNCA ocurrió. Se añade al feed de
+  // eventos sin registrarlo en el "contrato" — exactamente lo que haría un RPC comprometido.
+  l1.deposits.push({
+    index: BigInt(l1.deposits.length),
+    from: atacante.publicKey(),
+    token: TOKEN,
+    amount: 1_000_000n,
+    l2Recipient: atacante.publicKey(),
+    ledger: l1.ledger,
+    l1TxHash: 'ff'.repeat(32),
+  });
+
+  await engine.tick();
+
+  assert.equal(seqr.state.get(atacante.publicKey(), TOKEN).balance, 0n, 'no se acreditó nada al atacante');
+  assert.ok(log.some((e) => e.kind === 'deposit_rejected'), 'el rechazo quedó registrado');
+  assert.equal(seqr.state.totalsByToken().get(TOKEN), 10_000n, 'lo emitido sigue siendo solo lo real');
+
+  // Y la red de seguridad: aunque algo se colara, la solvencia lo detecta y congela la L2.
+  assert.deepEqual(await engine.checkSolvency(), [], 'con el estado real, solvente');
+
+  // Se fuerza el peor caso: un depósito falso que SÍ pasara todas las validaciones anteriores.
+  seqr.state.applyDeposit({ type: 'deposit', depositIndex: seqr.state.nextDepositIndex, to: atacante.publicKey(), token: TOKEN, amount: 5_000_000n, l1TxHash: 'ee'.repeat(32) });
+  const breaches = await engine.checkSolvency();
+  assert.equal(breaches.length, 1, 'detecta que se emitió más de lo que hay en la bóveda');
+  assert.equal(breaches[0]!.vault, 10_000n);
+  assert.equal(engine.halted, true, 'el secuenciador se detiene solo');
+});

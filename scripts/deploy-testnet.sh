@@ -58,9 +58,11 @@ echo "depósito de prueba de 10 XLM ..."
   --from "$USER_PUB" --token "$XLM_SAC" --amount 100000000 --l2_recipient "$USER_PUB"
 
 # --- 5. .env -----------------------------------------------------------------------------------
+# La passphrase lleva espacios y un ';': sin comillas, `set -a; source .env` la parte y el
+# secuenciador arranca con otra red. Se escribe entrecomillada.
 cat > .env <<EOF
 L1_MODE=rpc
-NETWORK_PASSPHRASE=$PASSPHRASE
+NETWORK_PASSPHRASE="$PASSPHRASE"
 RPC_URLS=$RPC
 BRIDGE_CONTRACT_ID=$BRIDGE
 SEQUENCER_SECRET=$SEQ_SEC

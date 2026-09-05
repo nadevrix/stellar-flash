@@ -60,6 +60,22 @@ export interface L1Client {
   commitBatch(args: CommitBatchArgs, maxInclusionFeeStroops: number): Promise<CommitResult>;
   /** Eventos `deposit` del puente en (fromLedger, toLedger]. */
   fetchDeposits(fromLedger: number, limit: number): Promise<{ deposits: DepositEvent[]; latestLedger: number }>;
+  /**
+   * Lee un depósito del ESTADO del contrato (no del evento). El evento es solo un aviso: un RPC
+   * comprometido puede inventárselo. La única fuente de verdad es el contrato.
+   */
+  getDeposit(index: bigint): Promise<VerifiedDeposit | null>;
+  /** Saldo real del puente en un token, para comprobar la solvencia de lo emitido. */
+  getVaultBalance(token: string): Promise<bigint>;
+}
+
+/** Depósito tal como lo guarda el contrato. */
+export interface VerifiedDeposit {
+  from: string;
+  token: string;
+  amount: bigint;
+  l2Recipient: string;
+  ledger: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -134,6 +150,7 @@ export class MockL1Client implements L1Client {
       l1TxHash: toHex(sha256(utf8(`mock-deposit-${index}-${from}-${amount}`))),
     };
     this.deposits.push(ev);
+    this.recorded.set(index, { from, token, amount, l2Recipient, ledger: ev.ledger });
     return ev;
   }
 
@@ -188,6 +205,27 @@ export class MockL1Client implements L1Client {
     this.batches.push({ ...args, txHash, ledger: this.ledger });
     return { txHash, ledger: this.ledger, feeCharged: Math.min(maxInclusionFeeStroops, this.mode === 'degraded' ? 25_000 : 200) + 50_000 };
   }
+
+  /**
+   * Depósitos que el "contrato" tiene registrados de verdad. En los tests se puede añadir a
+   * `deposits` un evento SIN registrarlo aquí para simular un RPC que se inventa depósitos.
+   */
+  readonly recorded = new Map<bigint, VerifiedDeposit>();
+
+  async getDeposit(index: bigint): Promise<VerifiedDeposit | null> {
+    if (this.mode === 'down') throw new L1Error('NETWORK', 'mock L1 caída');
+    return this.recorded.get(index) ?? null;
+  }
+
+  async getVaultBalance(token: string): Promise<bigint> {
+    if (this.mode === 'down') throw new L1Error('NETWORK', 'mock L1 caída');
+    let total = 0n;
+    for (const d of this.recorded.values()) if (d.token === token) total += d.amount;
+    return total - (this.claimed.get(token) ?? 0n);
+  }
+
+  /** Retiros ya reclamados en L1: salen de la bóveda. */
+  readonly claimed = new Map<string, bigint>();
 
   async fetchDeposits(fromLedger: number, limit: number): Promise<{ deposits: DepositEvent[]; latestLedger: number }> {
     if (this.mode === 'down') throw new L1Error('NETWORK', 'mock L1 caída');

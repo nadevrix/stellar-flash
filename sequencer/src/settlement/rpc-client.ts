@@ -21,7 +21,7 @@ import {
 } from '@stellar/stellar-sdk';
 import { fromHex, toHex } from '../../../protocol/src/index.ts';
 import type { DepositEvent } from '../core/sequencer.ts';
-import { L1Error, type BridgeState, type CommitBatchArgs, type CommitResult, type EndpointProbe, type L1Client } from './l1.ts';
+import { L1Error, type BridgeState, type CommitBatchArgs, type CommitResult, type EndpointProbe, type L1Client, type VerifiedDeposit } from './l1.ts';
 
 /** Nombres de `Error` del contrato (contracts/flash-bridge/src/lib.rs) para logs legibles. */
 export const CONTRACT_ERRORS: Record<number, string> = {
@@ -116,13 +116,19 @@ export class StellarRpcL1Client implements L1Client {
   }
 
   /** Ejecuta `fn` contra los servidores en orden de preferencia, rotando ante errores de red. */
-  private async withFailover<T>(fn: (server: rpc.Server, url: string) => Promise<T>): Promise<T> {
+  /**
+   * `rotate`: empieza por un endpoint distinto al preferido. Se usa para verificar contra una
+   * fuente diferente de la que trajo el dato; con un solo RPC configurado no cambia nada, y por
+   * eso en producción conviene tener al menos dos proveedores independientes.
+   */
+  private async withFailover<T>(fn: (server: rpc.Server, url: string) => Promise<T>, rotate = false): Promise<T> {
     let lastErr: unknown;
+    const start = rotate && this.servers.length > 1 ? this.preferred + 1 : this.preferred;
     for (let i = 0; i < this.servers.length; i++) {
-      const idx = (this.preferred + i) % this.servers.length;
+      const idx = (start + i) % this.servers.length;
       try {
         const r = await fn(this.servers[idx], this.endpoints[idx]);
-        this.preferred = idx;
+        if (!rotate) this.preferred = idx;
         return r;
       } catch (e) {
         lastErr = e;
@@ -142,6 +148,45 @@ export class StellarRpcL1Client implements L1Client {
     if (rpc.Api.isSimulationError(sim)) throw new L1Error('TX_FAILED', describeContractError(sim.error));
     if (!rpc.Api.isSimulationSuccess(sim) || !sim.result) throw new L1Error('TX_FAILED', `simulación sin resultado para ${method}`);
     return scValToNative(sim.result.retval);
+  }
+
+  /**
+   * Lee un depósito del estado del contrato. Se consulta preferentemente por un endpoint DISTINTO
+   * al que sirvió el evento: para colar un depósito falso ya no basta con mentir en un evento,
+   * habría que mentir a la vez en el estado del contrato y en otro proveedor.
+   */
+  async getDeposit(index: bigint): Promise<VerifiedDeposit | null> {
+    return this.withFailover(async (server) => {
+      try {
+        const d = (await this.simulateRead(server, 'get_deposit', nativeToScVal(index, { type: 'u64' }))) as
+          | { from: string; token: string; amount: bigint; l2_recipient: string; ledger: number }
+          | null
+          | undefined;
+        if (!d) return null;
+        return { from: String(d.from), token: String(d.token), amount: BigInt(d.amount), l2Recipient: String(d.l2_recipient), ledger: Number(d.ledger) };
+      } catch (e) {
+        throw e instanceof L1Error ? e : new L1Error('NETWORK', e instanceof Error ? e.message : String(e));
+      }
+    }, /* rotate */ true);
+  }
+
+  /** `balance(bridge)` del contrato del token: lo que la bóveda tiene de verdad. */
+  async getVaultBalance(token: string): Promise<bigint> {
+    return this.withFailover(async (server) => {
+      try {
+        const account = await server.getAccount(this.keypair.publicKey());
+        const tx = new TransactionBuilder(account, { fee: '100', networkPassphrase: this.passphrase })
+          .addOperation(new Contract(token).call('balance', new Address(this.bridgeId).toScVal()))
+          .setTimeout(30)
+          .build();
+        const sim = await server.simulateTransaction(tx);
+        if (rpc.Api.isSimulationError(sim)) throw new L1Error('TX_FAILED', describeContractError(sim.error));
+        if (!rpc.Api.isSimulationSuccess(sim) || !sim.result) throw new L1Error('TX_FAILED', 'simulación sin resultado para balance');
+        return BigInt(scValToNative(sim.result.retval) as bigint);
+      } catch (e) {
+        throw e instanceof L1Error ? e : new L1Error('NETWORK', e instanceof Error ? e.message : String(e));
+      }
+    });
   }
 
   async getBridgeState(): Promise<BridgeState> {

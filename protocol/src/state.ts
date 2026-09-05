@@ -191,6 +191,19 @@ export class FlashState {
     return { account, token, balance: l.balance, nonce: l.nonce, leafIndex: idx, proof: getProof(tree, idx), root: tree.root };
   }
 
+  /**
+   * Cuánto FXLM hay emitido por token: el pasivo de Flash. Debe estar siempre respaldado por
+   * el saldo real del contrato en L1 (ver `checkSolvency` en el motor de settlement).
+   */
+  totalsByToken(): Map<string, bigint> {
+    const totals = new Map<string, bigint>();
+    for (const [k, st] of this.accounts) {
+      const token = k.slice(k.indexOf('|') + 1);
+      totals.set(token, (totals.get(token) ?? 0n) + st.balance);
+    }
+    return totals;
+  }
+
   snapshot(): { nextDepositIndex: string; accounts: [string, string, string, string][] } {
     const accounts: [string, string, string, string][] = [];
     for (const [k, st] of this.accounts) {

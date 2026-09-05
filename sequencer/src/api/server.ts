@@ -108,6 +108,7 @@ export function createApiServer(ctx: ApiContext): Server {
           depositCursor: sequencer.state.nextDepositIndex.toString(),
           lastBatch: last ? batchView(last) : null,
           uptimeSec: Math.round((Date.now() - info.startedAt) / 1000),
+          halted: engine.halted,
         },
         l1: { status: h.status, reason: h.reason, latestLedger: h.latestLedger, ledgerAgeSec: h.ledgerAgeSec, feeP50: h.feeP50, feeP90: h.feeP90, surge: h.surge, endpoints: h.probes.map((p) => ({ endpoint: p.endpoint, ok: p.ok, latencyMs: p.latencyMs, latestLedger: p.latestLedger, error: p.error })) },
         settlement: engine.lastPolicyDecision,

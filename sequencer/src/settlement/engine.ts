@@ -12,7 +12,7 @@
  * Todo error de L1 se registra en el lote (attempts/lastError) y se reintenta con backoff.
  * La L2 nunca se detiene por culpa de la L1.
  */
-import type { Sequencer } from '../core/sequencer.ts';
+import type { DepositEvent, Sequencer } from '../core/sequencer.ts';
 import type { Store } from '../db/store.ts';
 import { L1HealthMonitor, type HealthSnapshot } from './health.ts';
 import { L1Error, type L1Client } from './l1.ts';
@@ -23,11 +23,13 @@ export interface EngineConfig extends PolicyConfig {
   challengePeriodLedgers: number;
   depositScanStartLedger: number;
   depositBatchLimit?: number;
+  /** Cada cuánto se comprueba que lo emitido sigue respaldado por la bóveda (ms). */
+  solvencyIntervalMs?: number;
 }
 
 export interface EngineEvent {
   at: number;
-  kind: 'health' | 'seal' | 'commit' | 'commit_failed' | 'defer' | 'hold' | 'finalized' | 'deposit' | 'error';
+  kind: 'health' | 'seal' | 'commit' | 'commit_failed' | 'defer' | 'hold' | 'finalized' | 'deposit' | 'deposit_rejected' | 'insolvency' | 'error';
   message: string;
   data?: Record<string, unknown>;
 }
@@ -62,6 +64,13 @@ export class SettlementEngine {
     });
   }
 
+  /**
+   * Parada de emergencia por insolvencia detectada. No se acredita ni se sella nada más: es
+   * preferible congelar la L2 a seguir emitiendo contra una bóveda que no cubre.
+   */
+  halted = false;
+  private lastSolvencyAt = 0;
+
   get lastPolicyDecision(): SettlementDecision | null {
     return this.lastDecision;
   }
@@ -82,9 +91,23 @@ export class SettlementEngine {
     this.running = true;
     try {
       const health = await this.monitor.probe(now);
-      if (health.status !== 'DOWN') await this.scanDeposits();
-      this.maybeSeal(now);
-      await this.settleNext(health, now);
+      if (health.status !== 'DOWN' && !this.halted) {
+        await this.scanDeposits();
+        // La solvencia se comprueba cada `solvencyIntervalMs`: es una lectura a L1 por token,
+        // no hace falta en cada tick.
+        if (now - this.lastSolvencyAt >= (this.cfg.solvencyIntervalMs ?? 60_000)) {
+          this.lastSolvencyAt = now;
+          try {
+            await this.checkSolvency();
+          } catch (e) {
+            this.log({ at: Date.now(), kind: 'error', message: `no se pudo comprobar la solvencia: ${e instanceof Error ? e.message : String(e)}` });
+          }
+        }
+      }
+      if (!this.halted) {
+        this.maybeSeal(now);
+        await this.settleNext(health, now);
+      }
       this.finalize(health, now);
       return health;
     } finally {
@@ -109,8 +132,12 @@ export class SettlementEngine {
     try {
       const { deposits, latestLedger } = await this.l1.fetchDeposits(from, this.cfg.depositBatchLimit ?? 200);
       deposits.sort((a, b) => (a.index < b.index ? -1 : a.index > b.index ? 1 : 0));
+      // El contrato dice cuántos depósitos existen de verdad: nada por encima de ese número
+      // puede ser real, aunque un RPC lo anuncie.
+      const depositCount = (await this.l1.getBridgeState()).depositCount;
       let maxLedger = from;
       for (const d of deposits) {
+        if (!(await this.verifyDeposit(d, depositCount))) continue;
         const r = this.seqr.ingestDeposit(d);
         if (r) this.log({ at: Date.now(), kind: 'deposit', message: `depósito #${d.index} acreditado: ${d.amount} → ${d.l2Recipient.slice(0, 8)}… (ledger ${d.ledger})`, data: { index: d.index.toString() } });
         maxLedger = Math.max(maxLedger, d.ledger);
@@ -121,6 +148,48 @@ export class SettlementEngine {
     } catch (e) {
       this.log({ at: Date.now(), kind: 'error', message: `escaneo de depósitos falló: ${e instanceof Error ? e.message : String(e)}` });
     }
+  }
+
+  /**
+   * Un evento `deposit` es solo un aviso, no una prueba: un RPC comprometido puede fabricarlo y
+   * hacernos emitir FXLM sin respaldo. Se contrasta contra el ESTADO del contrato antes de
+   * acreditar. Si no cuadra, no se acredita y se avisa fuerte: o el RPC miente o hay un bug.
+   */
+  private async verifyDeposit(d: DepositEvent, depositCount: bigint): Promise<boolean> {
+    const reject = (why: string) => {
+      this.log({ at: Date.now(), kind: 'deposit_rejected', message: `depósito #${d.index} RECHAZADO (${why}). El evento no coincide con el contrato: revisa el RPC.`, data: { index: d.index.toString(), why } });
+      return false;
+    };
+    if (d.index >= depositCount) return reject(`índice fuera de rango: el contrato lleva ${depositCount}`);
+    const onChain = await this.l1.getDeposit(d.index);
+    if (!onChain) return reject('no existe en el contrato');
+    if (onChain.amount !== d.amount) return reject(`monto ${d.amount} ≠ ${onChain.amount} en el contrato`);
+    if (onChain.token !== d.token) return reject('token distinto al del contrato');
+    if (onChain.l2Recipient !== d.l2Recipient) return reject('destinatario distinto al del contrato');
+    return true;
+  }
+
+  /**
+   * Invariante de solvencia: el FXLM emitido nunca puede superar lo que la bóveda tiene de verdad.
+   * Es la red de seguridad por si algo se colara: si no cuadra, el secuenciador se detiene solo.
+   *
+   * Es una comprobación conservadora — la bóveda además retiene los retiros aún no reclamados, así
+   * que en operación normal sobra saldo. Que falte es siempre un problema.
+   */
+  async checkSolvency(): Promise<{ token: string; issued: bigint; vault: bigint }[]> {
+    const breaches: { token: string; issued: bigint; vault: bigint }[] = [];
+    for (const [token, issued] of this.seqr.state.totalsByToken()) {
+      if (issued <= 0n) continue;
+      const vault = await this.l1.getVaultBalance(token);
+      if (issued > vault) breaches.push({ token, issued, vault });
+    }
+    if (breaches.length > 0) {
+      this.halted = true;
+      for (const b of breaches) {
+        this.log({ at: Date.now(), kind: 'insolvency', message: `PARADA: emitidos ${b.issued} de ${b.token.slice(0, 8)}… con solo ${b.vault} en la bóveda. El secuenciador deja de acreditar y sellar.`, data: { token: b.token, issued: b.issued.toString(), vault: b.vault.toString() } });
+      }
+    }
+    return breaches;
   }
 
   private async settleNext(health: HealthSnapshot, now: number) {
