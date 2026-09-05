@@ -342,7 +342,7 @@ test('seguridad: un RPC comprometido no puede acuñar FXLM sin respaldo', async 
     token: TOKEN,
     amount: 1_000_000n,
     l2Recipient: atacante.publicKey(),
-    ledger: l1.ledger,
+    ledger: l1.deposits.at(-1)!.ledger,
     l1TxHash: 'ff'.repeat(32),
   });
 
