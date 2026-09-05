@@ -15,11 +15,15 @@ services:
     branch: main
     # Un cambio en la landing NO debe reiniciar el secuenciador: reiniciarlo corta la
     # confirmación de pagos y vuelve a leer el contrato. Solo el backend lo redespliega.
+    # Solo lo que el secuenciador ejecuta lo redespliega. Reiniciarlo corta la confirmación de
+    # pagos y vuelve a leer el contrato, así que un cambio en la landing, el SDK o los docs no debe
+    # tocarlo.
     buildFilter:
-      ignoredPaths:
-        - frontend/**
-        - docs/**
-        - "*.md"
+      paths:
+        - sequencer/**
+        - protocol/**
+        - package.json
+        - package-lock.json
     buildCommand: npm ci --omit=dev
     startCommand: node sequencer/src/index.ts
     healthCheckPath: /v1/health

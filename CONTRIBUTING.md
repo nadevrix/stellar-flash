@@ -66,12 +66,22 @@ node scripts/testnet-e2e.ts             # depósito → pago → lote → retiro
 - Los enums XDR son **instancias, no funciones**: `xdr.ScValType.scvAddress` sin paréntesis.
 - `Transaction.hash()` devuelve `Uint8Array` → `Buffer.from(...).toString('hex')`.
 - Para diagnosticar envíos rechazados: `sendTransaction().errorResult.toXDR('base64')`.
+- `getTransaction(...).resultXdr` **no tiene `.result()`**: usa `resultXdr.toXdrObject()`, que devuelve
+  un objeto plano donde `feeCharged` es una **propiedad**, no un método.
 
 **`soroban-sdk` 27**
 - `env.crypto().sha256(&bytes).to_bytes()` → `BytesN<32>`.
 - `Address::to_xdr(env)` requiere `use soroban_sdk::xdr::ToXdr` y **consume `self`** (clona antes).
 - `env.events().publish` está deprecado → usa `#[contractevent]` (el topic es el nombre en snake_case).
 - Tests: `env.register(Contract, (args…))`, `env.register_stellar_asset_contract_v2(admin)`, `env.ledger().with_mut(|l| l.sequence_number += n)`.
+
+**Límites de lote (medidos en testnet, sep-2026)**
+- Un lote de 250 pagos = 54 754 B de datos → transacción Soroban de **110 416 B** (2,02x de overhead
+  XDR), el 84 % del máximo por transacción (132 096 B). Por eso `MAX_BATCH_BYTES` es 60 000.
+- Coste real: **818 590 stroops (0,082 XLM) por lote**, es decir **0,33 XLM por cada 1000 pagos**.
+- Capacidad de publicación: caben 2 lotes así por ledger → **~100 pagos/s sostenidos** en L1 hoy.
+  La confirmación en L2 es mucho más rápida; el techo está en la disponibilidad de datos, y es lo
+  que ataca la fase ZK con compresión. Reproducir con `node scripts/measure-batch-cost.ts`.
 
 **Stellar RPC**
 - La respuesta de `getLatestLedger` supera los 4 KB (lleva `metadataXdr`), así que llega **en varios chunks**: acumula stdin antes de parsear o tendrás un `Unterminated string in JSON`.
