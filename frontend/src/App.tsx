@@ -1,5 +1,6 @@
 import { Bolt, Logo } from './components/Logo.tsx';
 import { LivePanel, StatusPill, useHealth } from './components/LiveStatus.tsx';
+import { ObjectShot } from './components/ObjectShot.tsx';
 import { SEQUENCER_URL } from './lib/api.ts';
 
 const GITHUB = 'https://github.com/nadevrix/stellar-flash';
@@ -7,24 +8,36 @@ const CONTRACT = 'CBRJ3ILZPY4AUNC5I6SC5FTRA2CJIZJPY5337FO2QO5BQ7HSB2Z7IBB4';
 const EXPERT = `https://stellar.expert/explorer/testnet/contract/${CONTRACT}`;
 const WITHDRAW_TX = 'b7a3e6ce536ac97c79d06ad2dbf99b5d0870c029f41a796ba4080a057b4e9e90';
 
+/** Botón principal: píldora oscura con flecha en círculo dorado (gesto de la web de Stellar). */
+function CtaPill({ href, children, external = false }: { href: string; children: React.ReactNode; external?: boolean }) {
+  return (
+    <a href={href} {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}
+       className="group inline-flex items-center gap-3 rounded-full bg-ink py-2 pl-6 pr-2 font-medium text-white transition hover:bg-ink/90">
+      {children}
+      <span className="grid h-9 w-9 place-items-center rounded-full bg-gold text-ink transition group-hover:rotate-45">
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7 17 17 7M9 7h8v8" />
+        </svg>
+      </span>
+    </a>
+  );
+}
+
 function Nav() {
   const { health } = useHealth(8000);
   return (
-    <header className="sticky top-0 z-50 border-b border-white/8 bg-ink/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-ink/8 bg-white/85 backdrop-blur-md">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <a href="#top"><Logo /></a>
-        <div className="hidden items-center gap-8 text-sm text-white/60 md:flex">
-          <a href="#problem" className="transition hover:text-white">The problem</a>
-          <a href="#how" className="transition hover:text-white">How it works</a>
-          <a href="#live" className="transition hover:text-white">Live</a>
-          <a href="#developers" className="transition hover:text-white">Developers</a>
+        <div className="hidden items-center gap-8 text-sm text-ink/65 lg:flex">
+          <a href="#problem" className="transition hover:text-ink">The problem</a>
+          <a href="#how" className="transition hover:text-ink">How it works</a>
+          <a href="#live" className="transition hover:text-ink">Live</a>
+          <a href="#developers" className="transition hover:text-ink">Developers</a>
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden sm:block"><StatusPill health={health} /></div>
-          <a href={GITHUB} target="_blank" rel="noreferrer"
-             className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-ink transition hover:bg-gold/90">
-            GitHub
-          </a>
+          <CtaPill href={GITHUB} external>GitHub</CtaPill>
         </div>
       </nav>
     </header>
@@ -32,43 +45,56 @@ function Nav() {
 }
 
 function Hero() {
+  const { health } = useHealth();
   return (
-    <section id="top" className="grid-bg relative overflow-hidden border-b border-white/8">
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-[38rem] w-[38rem] -translate-x-1/2 rounded-full bg-gold/8 blur-[120px]" />
-      <div className="relative mx-auto max-w-6xl px-6 py-24 sm:py-32">
-        <span className="inline-flex items-center gap-2 rounded-full border border-gold/25 bg-gold/8 px-3 py-1 text-xs font-medium text-gold">
-          <Bolt className="h-3 w-3" /> Payment rollup on Stellar
+    <section id="top" className="relative overflow-hidden bg-paper">
+      <div className="halftone halftone-fade absolute inset-0 opacity-70" />
+      <div className="relative mx-auto max-w-4xl px-6 py-28 text-center sm:py-36">
+        <span className="inline-flex items-center gap-2 rounded-full border border-ink/12 bg-white/70 px-3.5 py-1.5 text-xs font-medium text-ink/70 backdrop-blur">
+          <Bolt className="h-3 w-3 text-ink" /> Payment rollup on Stellar
         </span>
-        <h1 className="mt-7 max-w-3xl font-display text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
-          Payments that confirm<br />before you can blink.
+        <h1 className="mt-8 font-display text-5xl font-semibold leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
+          Payments that confirm before you can blink
         </h1>
-        <p className="mt-7 max-w-2xl text-lg leading-relaxed text-white/60">
-          Stellar Flash is a rollup for payments. Same <code className="font-mono text-white/80">G…</code> keys,
-          same assets, same security — money stays in a Soroban contract and leaves only with a Merkle proof.
-          What changes is the wait: <span className="text-white">milliseconds instead of seconds</span>,
-          and nothing breaks when the network has a bad day.
+        <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-ink/65">
+          Same <code className="font-mono text-ink">G…</code> keys, same assets, same security — funds stay
+          in a Soroban contract and leave only with a Merkle proof. What changes is the wait.
         </p>
-        <div className="mt-10 flex flex-wrap gap-3">
-          <a href="#developers" className="rounded-lg bg-gold px-6 py-3 font-semibold text-ink transition hover:bg-gold/90">
-            Start building
-          </a>
-          <a href="#live" className="rounded-lg border border-white/15 px-6 py-3 font-semibold text-white transition hover:border-white/30 hover:bg-white/5">
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
+          <CtaPill href="#developers">Start building</CtaPill>
+          <a href="#live" className="inline-flex items-center rounded-full border border-ink/15 px-6 py-3 font-medium transition hover:border-ink/40 hover:bg-white">
             See it live
           </a>
         </div>
-        <dl className="mt-16 grid max-w-3xl grid-cols-2 gap-8 sm:grid-cols-4">
-          {[
-            ['6 ms', 'payment confirmation'],
-            ['~2 min', 'withdrawal to Stellar'],
-            ['1:1', 'backed by the vault'],
-            ['0', 'new keys to manage'],
-          ].map(([v, l]) => (
-            <div key={l}>
-              <dt className="font-mono text-3xl font-medium text-gold">{v}</dt>
-              <dd className="mt-1 text-sm text-white/45">{l}</dd>
-            </div>
-          ))}
-        </dl>
+        {health && (
+          <p className="rise mt-10 font-mono text-sm text-ink/45">
+            Stellar ledger #{health.l1.latestLedger.toLocaleString('en-US')} · {health.l1.ledgerAgeSec}s ago ·
+            sequencer {health.l1.status === 'HEALTHY' ? 'settling' : 'holding batches'}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** Franja de cifras: el equivalente honesto a su banda de logos de partners. */
+function Numbers() {
+  const items = [
+    ['6 ms', 'payment confirmation', 'measured by the sequencer, not estimated'],
+    ['~2 min', 'withdrawal to Stellar', 'Arbitrum makes you wait seven days'],
+    ['1:1', 'backed in the vault', 'every FXLM is an XLM in the contract'],
+    ['0', 'new keys to manage', 'your Stellar address is your Flash address'],
+  ];
+  return (
+    <section className="border-y border-ink/10 bg-white">
+      <div className="mx-auto grid max-w-6xl gap-px bg-ink/10 px-6 sm:grid-cols-2 lg:grid-cols-4">
+        {items.map(([v, l, s]) => (
+          <div key={l} className="bg-white py-10 sm:px-6">
+            <div className="font-display text-4xl font-semibold text-ink">{v}</div>
+            <div className="mt-2 font-medium text-ink/75">{l}</div>
+            <div className="mt-1 text-sm leading-relaxed text-ink/45">{s}</div>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -76,44 +102,43 @@ function Hero() {
 
 function Problem() {
   return (
-    <section id="problem" className="border-b border-white/8 bg-paper text-ink">
-      <div className="mx-auto max-w-6xl px-6 py-24">
-        <div className="grid gap-14 lg:grid-cols-[1.1fr_1fr] lg:gap-20">
+    <section id="problem" className="bg-white">
+      <div className="mx-auto max-w-6xl px-6 py-28">
+        <div className="grid items-center gap-16 lg:grid-cols-[1fr_auto]">
           <div>
             <p className="font-mono text-sm uppercase tracking-widest text-warm">The problem</p>
-            <h2 className="mt-4 font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-              People send&nbsp;$1 first, just to see if it arrives.
+            <h2 className="mt-5 max-w-xl font-display text-4xl font-semibold leading-[1.15] tracking-tight sm:text-5xl">
+              People send $1 first, just to see if it arrives
             </h2>
-            <div className="mt-7 space-y-5 text-lg leading-relaxed text-ink/70">
+            <div className="mt-8 max-w-xl space-y-5 text-lg leading-relaxed text-ink/65">
               <p>
-                It is the quiet tax on every crypto payment product. Before moving real money,
-                users send a tiny test amount and wait — because they have seen a payment sit
+                It is the quiet tax on every crypto payment product. Before moving real money, users
+                send a tiny test amount and wait — because they have seen a payment sit
                 on <em>processing…</em> before, and nobody could tell them where it went.
               </p>
-              <p>
-                Two transactions instead of one. Two waits. And a business that looks unsure
-                of its own product.
-              </p>
+              <p>Two transactions instead of one. Two waits. And a business that looks unsure of its own product.</p>
               <p className="text-ink">
-                The ledger is not the problem. Stellar closes blocks every five seconds and does
-                it well. The problem is that five seconds is an eternity in a checkout, and that
-                everything between your app and the ledger — RPC endpoints, indexers, propagation —
-                can have a bad afternoon while the network itself is perfectly fine.
+                The ledger is not the problem. Stellar closes blocks every five seconds and does it well.
+                The problem is that five seconds is an eternity in a checkout, and that everything between
+                your app and the ledger — RPC endpoints, indexers, propagation — can have a bad afternoon
+                while the network itself is perfectly fine.
               </p>
             </div>
           </div>
-          <div className="space-y-4">
-            {[
-              ['Payments stuck on “processing”', 'The transaction is submitted, the receipt is not there yet. The user reloads. Support gets a ticket.'],
-              ['Demos that look broken', 'The network is fine; a public RPC is not. The audience only sees a spinner.'],
-              ['Bulk payouts that go missing', 'Hundreds of payments from one account, sequence collisions, silent retries — and someone waits a week for their money.'],
-            ].map(([t, d]) => (
-              <div key={t} className="rounded-xl border border-ink/10 bg-white p-6">
-                <h3 className="font-display font-semibold">{t}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-ink/60">{d}</p>
-              </div>
-            ))}
-          </div>
+          <ObjectShot name="ticket" alt="A paper queue ticket: the waiting we remove" className="mx-auto" size="h-72 w-72" />
+        </div>
+
+        <div className="mt-20 grid gap-6 sm:grid-cols-3">
+          {[
+            ['Payments stuck on “processing”', 'The transaction is submitted, the receipt is not there yet. The user reloads. Support gets a ticket.'],
+            ['Demos that look broken', 'The network is fine; a public RPC is not. The audience only sees a spinner.'],
+            ['Bulk payouts that go missing', 'Hundreds of payments from one account, sequence collisions, silent retries — and someone waits a week.'],
+          ].map(([t, d]) => (
+            <div key={t} className="rounded-2xl border border-ink/10 bg-paper p-7">
+              <h3 className="font-display text-lg font-semibold">{t}</h3>
+              <p className="mt-3 leading-relaxed text-ink/60">{d}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -122,40 +147,36 @@ function Problem() {
 
 function How() {
   const steps = [
-    ['Deposit once', 'Send XLM or USDC to the flash-bridge contract on Stellar. You get FXLM or FUSDC 1:1, on the very same G… address. This is the only step that waits for a ledger.'],
-    ['Pay instantly', 'Payments inside Flash are signed by the user (SEP-53, so existing wallets work) and confirmed in milliseconds. They never touch the L1, so an RPC outage cannot stall them.'],
-    ['Settle in batches', 'Flash seals batches and publishes them on Stellar, with the full transaction data on-chain. When the network is degraded it waits and keeps confirming; when it recovers, the backlog goes out in order.'],
-    ['Withdraw whenever', 'Burn on Flash, prove with a Merkle branch, get paid by the contract. If we disappeared tomorrow, the escape hatch still works — and no admin can pause it.'],
+    ['Deposit once', 'Send XLM or USDC to the flash-bridge contract. You get FXLM or FUSDC 1:1, on the very same G… address. This is the only step that waits for a ledger.'],
+    ['Pay instantly', 'Payments are signed by the user with SEP-53, so existing wallets work unchanged, and confirmed in milliseconds. They never touch the L1.'],
+    ['Settle in batches', 'Flash publishes batches on Stellar with the full transaction data on-chain. When the network is degraded it waits and keeps confirming; when it recovers, the backlog goes out in order.'],
+    ['Withdraw whenever', 'Burn on Flash, prove with a Merkle branch, get paid by the contract. If we disappeared tomorrow the escape hatch still works — and no admin can pause it.'],
   ];
   return (
-    <section id="how" className="border-b border-white/8">
-      <div className="mx-auto max-w-6xl px-6 py-24">
-        <p className="font-mono text-sm uppercase tracking-widest text-warm">How it works</p>
-        <h2 className="mt-4 max-w-3xl font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-          A rollup, not a wallet with a database behind it.
-        </h2>
-        <p className="mt-6 max-w-2xl text-lg text-white/55">
-          Arbitrum made Ethereum fast by moving execution off-chain and keeping custody and proof on-chain.
-          Flash does the same for Stellar payments.
-        </p>
-        <ol className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-white/12 bg-white/10 sm:grid-cols-2">
+    <section id="how" className="bg-sand">
+      <div className="mx-auto max-w-6xl px-6 py-28">
+        <div className="grid items-center gap-16 lg:grid-cols-[auto_1fr]">
+          <ObjectShot name="telegraph" alt="A telegraph key: instant transmission across distance" className="order-2 mx-auto lg:order-1" size="h-72 w-72" />
+          <div className="order-1 lg:order-2">
+            <p className="font-mono text-sm uppercase tracking-widest text-warm">How it works</p>
+            <h2 className="mt-5 max-w-xl font-display text-4xl font-semibold leading-[1.15] tracking-tight sm:text-5xl">
+              A rollup, not a wallet with a database behind it
+            </h2>
+            <p className="mt-7 max-w-xl text-lg leading-relaxed text-ink/65">
+              Arbitrum made Ethereum fast by moving execution off-chain and keeping custody and proof
+              on-chain. Flash does the same for Stellar payments.
+            </p>
+          </div>
+        </div>
+        <ol className="mt-16 grid gap-px overflow-hidden rounded-2xl border border-ink/12 bg-ink/12 sm:grid-cols-2">
           {steps.map(([t, d], i) => (
-            <li key={t} className="bg-ink p-8">
-              <span className="font-mono text-sm text-gold">0{i + 1}</span>
+            <li key={t} className="bg-sand p-8">
+              <span className="font-mono text-sm text-ink/40">0{i + 1}</span>
               <h3 className="mt-3 font-display text-xl font-semibold">{t}</h3>
-              <p className="mt-3 leading-relaxed text-white/55">{d}</p>
+              <p className="mt-3 leading-relaxed text-ink/65">{d}</p>
             </li>
           ))}
         </ol>
-        <div className="mt-8 overflow-x-auto rounded-2xl border border-white/12 bg-white/[0.03] p-6">
-          <pre className="font-mono text-xs leading-relaxed text-white/60 sm:text-sm">
-{`  wallets ──signed payment (SEP-53)──▶  Flash sequencer  ──── confirms in ~6 ms
-                                              │
-                                              │ commit_batch  (batch data on L1)
-                                              ▼
-                          Stellar · flash-bridge contract  ── vault · roots · withdraw · escape`}
-          </pre>
-        </div>
       </div>
     </section>
   );
@@ -163,25 +184,30 @@ function How() {
 
 function Live() {
   return (
-    <section id="live" className="border-b border-white/8 bg-white/[0.02]">
-      <div className="mx-auto max-w-6xl px-6 py-24">
-        <p className="font-mono text-sm uppercase tracking-widest text-warm">Live</p>
-        <h2 className="mt-4 max-w-3xl font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-          Running on Stellar testnet right now.
-        </h2>
-        <p className="mt-6 max-w-2xl text-lg text-white/55">
-          The numbers below are read from the sequencer as you look at them, and the contract is
-          on-chain where anyone can inspect it.
-        </p>
-        <div className="mt-12"><LivePanel /></div>
+    <section id="live" className="bg-ink text-white">
+      <div className="mx-auto max-w-6xl px-6 py-28">
+        <div className="grid items-end gap-10 lg:grid-cols-[1fr_auto]">
+          <div>
+            <p className="font-mono text-sm uppercase tracking-widest text-gold">Live</p>
+            <h2 className="mt-5 max-w-2xl font-display text-4xl font-semibold leading-[1.15] tracking-tight sm:text-5xl">
+              Running on Stellar testnet right now
+            </h2>
+            <p className="mt-7 max-w-2xl text-lg leading-relaxed text-white/60">
+              The numbers below are read from the sequencer as you look at them, and the contract is
+              on-chain where anyone can inspect it.
+            </p>
+          </div>
+          <ObjectShot name="stopwatch" alt="A stopwatch frozen just past zero" size="h-40 w-40" className="hidden lg:block" />
+        </div>
+        <div className="mt-14"><LivePanel /></div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <a href={EXPERT} target="_blank" rel="noreferrer"
-             className="group rounded-xl border border-white/12 p-5 transition hover:border-gold/40 hover:bg-white/[0.03]">
+             className="group rounded-xl border border-white/12 p-5 transition hover:border-gold/50 hover:bg-white/[0.03]">
             <div className="text-sm text-white/45">Bridge contract</div>
             <div className="mt-1 break-all font-mono text-sm text-white group-hover:text-gold">{CONTRACT}</div>
           </a>
           <a href={`https://stellar.expert/explorer/testnet/tx/${WITHDRAW_TX}`} target="_blank" rel="noreferrer"
-             className="group rounded-xl border border-white/12 p-5 transition hover:border-gold/40 hover:bg-white/[0.03]">
+             className="group rounded-xl border border-white/12 p-5 transition hover:border-gold/50 hover:bg-white/[0.03]">
             <div className="text-sm text-white/45">A real withdrawal, proved and paid on Stellar</div>
             <div className="mt-1 break-all font-mono text-sm text-white group-hover:text-gold">{WITHDRAW_TX}</div>
           </a>
@@ -193,20 +219,20 @@ function Live() {
 
 function Developers() {
   return (
-    <section id="developers" className="border-b border-white/8">
-      <div className="mx-auto max-w-6xl px-6 py-24">
+    <section id="developers" className="bg-ink text-white">
+      <div className="mx-auto max-w-6xl border-t border-white/10 px-6 py-28">
         <div className="grid gap-14 lg:grid-cols-2 lg:gap-20">
           <div>
-            <p className="font-mono text-sm uppercase tracking-widest text-warm">Developers</p>
-            <h2 className="mt-4 font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-              Three lines, and your payments are instant.
+            <p className="font-mono text-sm uppercase tracking-widest text-gold">Developers</p>
+            <h2 className="mt-5 font-display text-4xl font-semibold leading-[1.15] tracking-tight sm:text-5xl">
+              Three lines, and your payments are instant
             </h2>
-            <p className="mt-6 text-lg leading-relaxed text-white/55">
-              The SDK speaks the same language you already use: Stellar keypairs, asset contract
-              ids, stroops. Payments are signed with SEP-53, so wallets that support{' '}
-              <code className="font-mono text-white/80">signMessage</code> work with no changes.
+            <p className="mt-7 text-lg leading-relaxed text-white/60">
+              The SDK speaks the language you already use: Stellar keypairs, asset contract ids, stroops.
+              Payments are signed with SEP-53, so wallets that support{' '}
+              <code className="font-mono text-white">signMessage</code> work with no changes.
             </p>
-            <ul className="mt-8 space-y-3 text-white/55">
+            <ul className="mt-9 space-y-3.5 text-white/60">
               {[
                 'Receipts carry the measured confirmation latency.',
                 'Two levels of finality, always visible: confirmed on Flash, settled on Stellar.',
@@ -219,18 +245,9 @@ function Developers() {
                 </li>
               ))}
             </ul>
-            <div className="mt-9 flex flex-wrap gap-3">
-              <a href={GITHUB} target="_blank" rel="noreferrer"
-                 className="rounded-lg bg-gold px-6 py-3 font-semibold text-ink transition hover:bg-gold/90">
-                Read the source
-              </a>
-              <a href={`${SEQUENCER_URL}/v1/health`} target="_blank" rel="noreferrer"
-                 className="rounded-lg border border-white/15 px-6 py-3 font-semibold transition hover:border-white/30 hover:bg-white/5">
-                Try the API
-              </a>
-            </div>
+            <div className="mt-10"><CtaPill href={GITHUB} external>Read the source</CtaPill></div>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-white/12 bg-[#0B0B0B]">
+          <div className="overflow-hidden rounded-2xl border border-white/12 bg-[#0A0A0A]">
             <div className="flex items-center gap-2 border-b border-white/8 px-5 py-3">
               <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
               <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
@@ -265,44 +282,42 @@ receipt.finality;    `}<span className="text-white/35">{"// { l2: 'instant', l1:
 
 function Footer() {
   return (
-    <footer className="bg-ink">
-      <div className="mx-auto max-w-6xl px-6 py-16">
-        <div className="flex flex-wrap items-start justify-between gap-10">
+    <footer className="bg-paper">
+      <div className="mx-auto max-w-6xl px-6 py-20">
+        <div className="flex flex-wrap items-start justify-between gap-12">
           <div className="max-w-sm">
             <Logo />
-            <p className="mt-4 text-sm leading-relaxed text-white/45">
+            <p className="mt-5 leading-relaxed text-ink/55">
               A payment rollup on Stellar. Millisecond confirmation, settlement on Stellar,
               funds in a contract you can audit.
             </p>
           </div>
-          <div className="flex gap-14 text-sm">
+          <div className="flex gap-16 text-sm">
             <div>
-              <h4 className="font-display font-semibold text-white">Project</h4>
-              <ul className="mt-4 space-y-2.5 text-white/45">
-                <li><a href={GITHUB} className="transition hover:text-gold" target="_blank" rel="noreferrer">GitHub</a></li>
-                <li><a href={`${GITHUB}/blob/main/docs/00-EMPIEZA-AQUI.md`} className="transition hover:text-gold" target="_blank" rel="noreferrer">Documentation</a></li>
-                <li><a href={`${GITHUB}/blob/main/CONTRIBUTING.md`} className="transition hover:text-gold" target="_blank" rel="noreferrer">Contributing</a></li>
+              <h4 className="font-display font-semibold">Project</h4>
+              <ul className="mt-4 space-y-2.5 text-ink/55">
+                <li><a href={GITHUB} className="transition hover:text-ink" target="_blank" rel="noreferrer">GitHub</a></li>
+                <li><a href={`${GITHUB}/blob/main/docs/00-EMPIEZA-AQUI.md`} className="transition hover:text-ink" target="_blank" rel="noreferrer">Documentation</a></li>
+                <li><a href={`${GITHUB}/blob/main/CONTRIBUTING.md`} className="transition hover:text-ink" target="_blank" rel="noreferrer">Contributing</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-display font-semibold text-white">Network</h4>
-              <ul className="mt-4 space-y-2.5 text-white/45">
-                <li><a href={`${SEQUENCER_URL}/v1/health`} className="transition hover:text-gold" target="_blank" rel="noreferrer">Sequencer status</a></li>
-                <li><a href={EXPERT} className="transition hover:text-gold" target="_blank" rel="noreferrer">Bridge contract</a></li>
+              <h4 className="font-display font-semibold">Network</h4>
+              <ul className="mt-4 space-y-2.5 text-ink/55">
+                <li><a href={`${SEQUENCER_URL}/v1/health`} className="transition hover:text-ink" target="_blank" rel="noreferrer">Sequencer status</a></li>
+                <li><a href={EXPERT} className="transition hover:text-ink" target="_blank" rel="noreferrer">Bridge contract</a></li>
               </ul>
             </div>
           </div>
         </div>
-        <div className="mt-14 border-t border-white/10 pt-7 text-xs leading-relaxed text-white/35">
+        <div className="mt-16 border-t border-ink/12 pt-7 text-xs leading-relaxed text-ink/45">
           <p>
-            Stellar Flash is an independent project. It is <strong className="text-white/50">not affiliated
-            with, sponsored or endorsed by the Stellar Development Foundation</strong>. “Stellar” is a
-            trademark of the Stellar Development Foundation; this site uses the name only to describe
-            the network Flash is built on, and its logo is not used here.
+            Stellar Flash is an independent project. It is <strong className="text-ink/70">not affiliated with,
+            sponsored or endorsed by the Stellar Development Foundation</strong>. “Stellar” is a trademark of
+            the Stellar Development Foundation; this site uses the name only to describe the network Flash is
+            built on, and its logo is not used here.
           </p>
-          <p className="mt-3">
-            Testnet software. Assets on testnet have no value. Apache-2.0 for the contract, MIT for the rest.
-          </p>
+          <p className="mt-3">Testnet software. Assets on testnet have no value. Apache-2.0 for the contract, MIT for the rest.</p>
         </div>
       </div>
     </footer>
@@ -315,6 +330,7 @@ export function App() {
       <Nav />
       <main>
         <Hero />
+        <Numbers />
         <Problem />
         <How />
         <Live />

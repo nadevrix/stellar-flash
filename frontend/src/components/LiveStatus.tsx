@@ -3,7 +3,7 @@ import { fetchHealth, SEQUENCER_URL, type Health } from '../lib/api.ts';
 
 const TONE = {
   HEALTHY: { dot: 'bg-teal', label: 'Healthy', text: 'text-teal' },
-  DEGRADED: { dot: 'bg-gold', label: 'Degraded', text: 'text-gold' },
+  DEGRADED: { dot: 'bg-gold', label: 'Degraded', text: 'text-amber-600' },
   DOWN: { dot: 'bg-red-400', label: 'Down', text: 'text-red-400' },
 } as const;
 
@@ -31,13 +31,14 @@ export function useHealth(intervalMs = 4000) {
   return { health, error };
 }
 
-export function StatusPill({ health }: { health: Health | null }) {
+export function StatusPill({ health, onDark = false }: { health: Health | null; onDark?: boolean }) {
   const tone = health ? TONE[health.l1.status] : null;
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-medium">
+    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
+      onDark ? 'border-white/12 bg-white/5' : 'border-ink/12 bg-white'}`}>
       <span className={`pulse-dot h-1.5 w-1.5 rounded-full ${tone?.dot ?? 'bg-warm'}`} />
-      <span className="text-white/60">Stellar network</span>
-      <span className={tone?.text ?? 'text-white/40'}>{tone?.label ?? 'connecting…'}</span>
+      <span className={onDark ? 'text-white/60' : 'text-ink/55'}>Stellar network</span>
+      <span className={tone?.text ?? (onDark ? 'text-white/40' : 'text-ink/40')}>{tone?.label ?? 'connecting…'}</span>
     </span>
   );
 }
@@ -70,7 +71,7 @@ export function LivePanel() {
             every 4 seconds.
           </p>
         </div>
-        <StatusPill health={health} />
+        <StatusPill health={health} onDark />
       </div>
 
       {error && (

@@ -27,13 +27,15 @@ export function Bolt({ className = 'h-4 w-4' }: { className?: string }) {
   );
 }
 
-export function Logo({ className = '' }: { className?: string }) {
+/**
+ * `onDark`: sobre fondo oscuro la marca va en oro; sobre fondo claro el oro no
+ * contrasta lo suficiente para un elemento tan pequeño, así que va en tinta.
+ */
+export function Logo({ className = '', onDark = false }: { className?: string; onDark?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <Mark className="h-7 w-7 text-gold" />
-      <span className="font-display text-[1.05rem] font-semibold tracking-tight text-white">
-        Stellar Flash
-      </span>
+    <span className={`inline-flex items-center gap-2.5 ${onDark ? 'text-white' : 'text-ink'} ${className}`}>
+      <Mark className={`h-7 w-7 ${onDark ? 'text-gold' : 'text-ink'}`} />
+      <span className="font-display text-[1.05rem] font-semibold tracking-tight">Stellar Flash</span>
     </span>
   );
 }
