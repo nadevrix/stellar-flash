@@ -212,6 +212,11 @@ export class MockL1Client implements L1Client {
    */
   readonly recorded = new Map<bigint, VerifiedDeposit>();
 
+  /** Ledger simulado actual (los tests lo necesitan para situar eventos). */
+  get currentLedger(): number {
+    return this.ledger;
+  }
+
   async getDeposit(index: bigint): Promise<VerifiedDeposit | null> {
     if (this.mode === 'down') throw new L1Error('NETWORK', 'mock L1 caída');
     return this.recorded.get(index) ?? null;

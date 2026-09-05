@@ -336,13 +336,15 @@ test('seguridad: un RPC comprometido no puede acuñar FXLM sin respaldo', async 
 
   // Ahora el ataque: el RPC anuncia un depósito de 1M que NUNCA ocurrió. Se añade al feed de
   // eventos sin registrarlo en el "contrato" — exactamente lo que haría un RPC comprometido.
+  // Va en un ledger nuevo, si no el escáner ya lo habría pasado de largo.
+  l1.advanceLedgers(1);
   l1.deposits.push({
     index: BigInt(l1.deposits.length),
     from: atacante.publicKey(),
     token: TOKEN,
     amount: 1_000_000n,
     l2Recipient: atacante.publicKey(),
-    ledger: l1.deposits.at(-1)!.ledger,
+    ledger: l1.currentLedger,
     l1TxHash: 'ff'.repeat(32),
   });
 
