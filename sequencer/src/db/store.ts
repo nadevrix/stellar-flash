@@ -238,6 +238,27 @@ export class Store {
     return Number((this.db.prepare('SELECT COUNT(*) AS c FROM transactions').get() as Row).c);
   }
 
+  /** Últimas transacciones de toda la L2 (feed del explorer). */
+  recentTxs(limit = 25): TxRecord[] {
+    const rows = this.db.prepare('SELECT * FROM transactions ORDER BY seq DESC LIMIT ?').all(Math.min(limit, 200)) as Row[];
+    return rows.map(rowToTx);
+  }
+
+  /**
+   * Métricas de la ventana reciente. Las latencias salen del log, no de una estimación:
+   * es el tiempo que el secuenciador tardó en confirmar cada pago.
+   */
+  statsSince(sinceMs: number): { count: number; latencyP50Us: number; latencyP99Us: number; byType: Record<string, number> } {
+    const rows = this.db
+      .prepare('SELECT type, latency_us FROM transactions WHERE created_at >= ? ORDER BY latency_us ASC')
+      .all(sinceMs) as Row[];
+    const byType: Record<string, number> = {};
+    for (const r of rows) byType[String(r.type)] = (byType[String(r.type)] ?? 0) + 1;
+    const lat = rows.map((r) => Number(r.latency_us)).sort((a, b) => a - b);
+    const pick = (q: number): number => (lat.length === 0 ? 0 : lat[Math.min(lat.length - 1, Math.floor(lat.length * q))]!);
+    return { count: rows.length, latencyP50Us: pick(0.5), latencyP99Us: pick(0.99), byType };
+  }
+
   // ---- batches ----
   insertBatch(b: BatchRecord) {
     this.db

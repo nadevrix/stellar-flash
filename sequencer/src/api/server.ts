@@ -148,6 +148,17 @@ export function createApiServer(ctx: ApiContext): Server {
           throw e;
         }
       }
+      // Feed de la L2 completa: lo que alimenta el explorer.
+      if (req.method === 'GET' && !id) {
+        const limit = Math.min(200, Number(url.searchParams.get('limit') ?? 25));
+        return json(res, 200, {
+          transactions: sequencer.store.recentTxs(limit).map((t) => ({
+            id: t.id, seq: t.seq, type: t.type, from: t.from, to: t.to, token: t.token, amount: t.amount,
+            batchIndex: t.batchIndex === null ? null : t.batchIndex.toString(),
+            createdAt: t.createdAt, latencyUs: t.latencyUs,
+          })),
+        });
+      }
       if (req.method === 'GET' && id) {
         const t = sequencer.store.getTx(id);
         if (!t) throw new HttpError(404, 'TX_NOT_FOUND', 'transacción no encontrada');
@@ -192,6 +203,35 @@ export function createApiServer(ctx: ApiContext): Server {
 
     if (req.method === 'GET' && resource === 'deposits' && !id) {
       return json(res, 200, { deposits: sequencer.store.listDeposits(Number(url.searchParams.get('limit') ?? 50)) });
+    }
+
+    if (req.method === 'GET' && resource === 'stats' && !id) {
+      const windowSec = Math.min(3600, Math.max(10, Number(url.searchParams.get('window') ?? 60)));
+      const st = sequencer.store.statsSince(Date.now() - windowSec * 1000);
+      const last = sequencer.store.lastBatch();
+      const batches = sequencer.store.listBatches(50, 0);
+      const committed = batches.filter((b) => b.committedAt !== null);
+      return json(res, 200, {
+        windowSec,
+        l2: {
+          txs: st.count,
+          txsPerSec: Number((st.count / windowSec).toFixed(3)),
+          latencyP50Us: st.latencyP50Us,
+          latencyP99Us: st.latencyP99Us,
+          byType: st.byType,
+          totalTxs: sequencer.store.countTxs(),
+          accounts: sequencer.state.size,
+        },
+        l1: {
+          batchesTotal: sequencer.nextBatch.toString(),
+          batchesCommitted: committed.length,
+          // Cuánto tarda un lote desde que se sella hasta que Stellar lo incluye.
+          avgSealToCommitMs: committed.length
+            ? Math.round(committed.reduce((a, b) => a + (b.committedAt! - b.sealedAt), 0) / committed.length)
+            : null,
+          lastBatch: last ? batchView(last) : null,
+        },
+      });
     }
 
     if (req.method === 'GET' && resource === 'l1' && id === 'history') {

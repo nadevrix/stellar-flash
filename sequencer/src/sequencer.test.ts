@@ -292,6 +292,25 @@ test('API HTTP: health, submit, cuenta, lote y prueba de retiro', async () => {
     assert.ok(batch.body.batch.txData);
     const txv = await get(`/transactions/${wid}`);
     assert.equal(txv.body.finality.l1, 'committed');
+
+    // feed de la L2 completa: el más reciente primero, con su lote ya asignado
+    const feed = await get('/transactions?limit=10');
+    assert.equal(feed.status, 200);
+    assert.equal(feed.body.transactions[0].id, wid);
+    assert.equal(feed.body.transactions[0].type, 'withdraw');
+    assert.ok(feed.body.transactions[0].batchIndex !== null, 'el retiro ya está en un lote');
+    assert.ok(feed.body.transactions.length >= 3, 'depósito + transferencia + retiro');
+
+    // métricas: las latencias vienen del log, no de una estimación
+    const stats = await get('/stats?window=600');
+    assert.equal(stats.status, 200);
+    assert.equal(stats.body.l2.txs, stats.body.l2.totalTxs);
+    assert.equal(stats.body.l2.byType.withdraw, 1);
+    assert.equal(stats.body.l2.byType.transfer, 1);
+    assert.ok(stats.body.l2.latencyP50Us >= 0);
+    assert.equal(stats.body.l1.batchesCommitted, 2, 'el del depósito y el de transferencia+retiro');
+    assert.ok(stats.body.l1.avgSealToCommitMs !== null);
+
     assert.equal((await get('/nope')).status, 404);
   } finally {
     server.close();
