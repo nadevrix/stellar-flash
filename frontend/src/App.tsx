@@ -1,4 +1,4 @@
-import { Logo, Mark } from './components/Logo.tsx';
+import { Bolt, Logo } from './components/Logo.tsx';
 import { LivePanel, StatusPill, useHealth } from './components/LiveStatus.tsx';
 import { SEQUENCER_URL } from './lib/api.ts';
 
@@ -37,7 +37,7 @@ function Hero() {
       <div className="pointer-events-none absolute -top-40 left-1/2 h-[38rem] w-[38rem] -translate-x-1/2 rounded-full bg-gold/8 blur-[120px]" />
       <div className="relative mx-auto max-w-6xl px-6 py-24 sm:py-32">
         <span className="inline-flex items-center gap-2 rounded-full border border-gold/25 bg-gold/8 px-3 py-1 text-xs font-medium text-gold">
-          <Mark className="h-3 w-3" /> Payment rollup on Stellar
+          <Bolt className="h-3 w-3" /> Payment rollup on Stellar
         </span>
         <h1 className="mt-7 max-w-3xl font-display text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
           Payments that confirm<br />before you can blink.
@@ -214,7 +214,7 @@ function Developers() {
                 'Open source, Apache-2.0 and MIT.',
               ].map((t) => (
                 <li key={t} className="flex gap-3">
-                  <Mark className="mt-1 h-3.5 w-3.5 shrink-0 text-gold" />
+                  <Bolt className="mt-1 h-3.5 w-3.5 shrink-0 text-gold" />
                   <span>{t}</span>
                 </li>
               ))}
