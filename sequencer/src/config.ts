@@ -65,7 +65,8 @@ export function loadConfig(overrides: Partial<SequencerConfig> = {}): SequencerC
     sequencerSecret: env('SEQUENCER_SECRET'),
     allowedTokens: (env('ALLOWED_TOKENS', '') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     dbPath: env('DB_PATH', 'data/flash.db')!,
-    apiPort: num('API_PORT', 8787),
+    // PaaS (Render, Fly, Railway) inyectan el puerto en PORT y exigen escuchar en 0.0.0.0.
+    apiPort: num('API_PORT', num('PORT', 8787)),
     apiHost: env('API_HOST', '127.0.0.1')!,
     sealIntervalMs: num('SEAL_INTERVAL_MS', 2_000),
     maxBatchBytes: num('MAX_BATCH_BYTES', 60_000),
