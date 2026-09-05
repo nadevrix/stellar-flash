@@ -51,7 +51,7 @@ export function ObjectShot({
       ) : (
         <img
           src={`/objects/${name}.png`} alt={alt} onError={() => setFailed(true)}
-          className="relative h-[78%] w-[78%] object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,.18)]"
+          className="relative h-[82%] w-[82%] object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,.18)]"
         />
       )}
     </div>

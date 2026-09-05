@@ -13,6 +13,13 @@ services:
     plan: starter
     region: oregon
     branch: main
+    # Un cambio en la landing NO debe reiniciar el secuenciador: reiniciarlo corta la
+    # confirmación de pagos y vuelve a leer el contrato. Solo el backend lo redespliega.
+    buildFilter:
+      ignoredPaths:
+        - frontend/**
+        - docs/**
+        - "*.md"
     buildCommand: npm ci --omit=dev
     startCommand: node sequencer/src/index.ts
     healthCheckPath: /v1/health
@@ -44,3 +51,14 @@ services:
         sync: false
       - key: DEPOSIT_SCAN_START_LEDGER
         sync: false
+
+  - type: web
+    name: stellar-flash
+    runtime: static
+    branch: main
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    buildFilter:
+      paths:
+        - frontend/**
