@@ -230,6 +230,16 @@ export class Store {
     return rows.map(rowToTx);
   }
 
+  /**
+   * Escribe las latencias medidas. Se llama al sellar, no en cada pago: la latencia solo se
+   * conoce después de persistir y aplicar, y un UPDATE por pago en la ruta caliente costaría
+   * más que el propio pago.
+   */
+  setTxLatencies(entries: Iterable<[number, number]>) {
+    const stmt = this.db.prepare('UPDATE transactions SET latency_us = ? WHERE seq = ?');
+    for (const [seq, us] of entries) stmt.run(us, seq);
+  }
+
   assignBatch(firstSeq: number, lastSeq: number, batchIndex: bigint) {
     this.db.prepare('UPDATE transactions SET batch_index = ? WHERE seq BETWEEN ? AND ?').run(Number(batchIndex), firstSeq, lastSeq);
   }

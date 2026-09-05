@@ -300,6 +300,11 @@ test('API HTTP: health, submit, cuenta, lote y prueba de retiro', async () => {
     assert.equal(feed.body.transactions[0].type, 'withdraw');
     assert.ok(feed.body.transactions[0].batchIndex !== null, 'el retiro ya está en un lote');
     assert.ok(feed.body.transactions.length >= 3, 'depósito + transferencia + retiro');
+    // Regresión: la latencia se mide después de persistir, así que la fila nace con 0 y hay que
+    // volcarla al sellar. Si esto vuelve a 0, el explorer muestra "0.00 ms" en todos los pagos.
+    const sealed = feed.body.transactions.filter((t: any) => t.batchIndex !== null);
+    assert.ok(sealed.length > 0);
+    for (const t of sealed) assert.ok(t.latencyUs > 0, `latencia no persistida en ${t.type}`);
 
     // métricas: las latencias vienen del log, no de una estimación
     const stats = await get('/stats?window=600');

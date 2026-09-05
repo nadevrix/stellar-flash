@@ -141,12 +141,16 @@ export class SettlementEngine {
       return;
     }
     this.lastDecisionReason = '';
+    // `now` es el instante del tick; publicar en Stellar tarda segundos. Si marcáramos el lote
+    // con `now`, sellado y publicación quedarían con el mismo sello de tiempo y la métrica
+    // "de sellado a L1" saldría 0. Medimos lo que realmente tardó la llamada.
+    const startedAt = Date.now();
     try {
       const res = await this.l1.commitBatch(
         { batchIndex: batch.index, prevStateRoot: batch.prevStateRoot, newStateRoot: batch.newStateRoot, withdrawalsRoot: batch.withdrawalsRoot, txCount: batch.txCount, depositCursor: batch.depositCursor, txData: batch.txData },
         decision.maxInclusionFeeStroops,
       );
-      this.store.markBatchCommitted(batch.index, res.txHash, res.ledger, now);
+      this.store.markBatchCommitted(batch.index, res.txHash, res.ledger, now + (Date.now() - startedAt));
       this.log({ at: Date.now(), kind: 'commit', message: `lote #${batch.index} publicado en Stellar: tx ${res.txHash.slice(0, 12)}… ledger ${res.ledger} (${decision.reason})`, data: { index: batch.index.toString(), txHash: res.txHash, ledger: res.ledger, fee: decision.maxInclusionFeeStroops } });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

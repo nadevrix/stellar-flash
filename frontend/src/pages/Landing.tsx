@@ -1,7 +1,7 @@
-import { Bolt, Logo } from './components/Logo.tsx';
-import { LivePanel, StatusPill, useHealth } from './components/LiveStatus.tsx';
-import { ObjectShot } from './components/ObjectShot.tsx';
-import { SEQUENCER_URL } from './lib/api.ts';
+import { Bolt, Logo } from '../components/Logo.tsx';
+import { LivePanel, StatusPill, useHealth } from '../components/LiveStatus.tsx';
+import { ObjectShot } from '../components/ObjectShot.tsx';
+import { SEQUENCER_URL } from '../lib/api.ts';
 
 const GITHUB = 'https://github.com/nadevrix/stellar-flash';
 const CONTRACT = 'CBRJ3ILZPY4AUNC5I6SC5FTRA2CJIZJPY5337FO2QO5BQ7HSB2Z7IBB4';
@@ -34,6 +34,7 @@ function Nav() {
           <a href="#how" className="transition hover:text-ink">How it works</a>
           <a href="#live" className="transition hover:text-ink">Live</a>
           <a href="#developers" className="transition hover:text-ink">Developers</a>
+          <a href="/explorer" className="transition hover:text-ink">Explorer</a>
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden sm:block"><StatusPill health={health} /></div>
@@ -324,7 +325,7 @@ function Footer() {
   );
 }
 
-export function App() {
+export function Landing() {
   return (
     <div className="min-h-dvh font-sans antialiased">
       <Nav />

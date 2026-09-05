@@ -62,3 +62,9 @@ services:
     buildFilter:
       paths:
         - frontend/**
+    # SPA: /explorer lo resuelve el router en el navegador, así que cualquier ruta
+    # que no sea un fichero debe servir index.html en lugar de dar 404.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -99,6 +99,8 @@ export class Sequencer {
   /** Txs ejecutadas y persistidas que aún no pertenecen a un lote, en orden de secuencia. */
   private pending: PendingTx[] = [];
   private pendingBytes = 0;
+  /** Latencias medidas aún no escritas al log (seq → µs). Se vuelcan al sellar. */
+  private readonly latencies = new Map<number, number>();
 
   private constructor(opts: SequencerOptions, state: FlashState, seq: number, nextBatchIndex: bigint, lastBatchRoot: string) {
     this.domain = opts.domain;
@@ -236,6 +238,9 @@ export class Sequencer {
     const withdrawal = this.state.apply(tx); // ya validada arriba: no lanza
     this.seq = seq;
     const latencyUs = Number((process.hrtime.bigint() - t0) / 1000n);
+    // La fila ya está escrita con latencia 0: la real solo se conoce aquí. Se acumula y se
+    // vuelca al sellar, para no meter otra escritura en la ruta caliente.
+    this.latencies.set(seq, latencyUs);
     this.pushPending({ tx, id, seq, bytes: encodeTx(tx).length + 2, withdrawal });
     if (this.seq % this.snapshotEvery === 0) this.saveSnapshot();
     return { id, seq: this.seq, type: tx.type, status: 'confirmed', finality: { l2: 'instant', l1: 'pending' }, batchIndex: null, latencyUs, timestamp: now };
@@ -301,13 +306,16 @@ export class Sequencer {
       lastAttemptAt: null,
       lastError: null,
     };
+    const latencies = [...this.latencies].filter(([seq]) => seq >= batch.firstSeq && seq <= batch.lastSeq);
     this.store.transaction(() => {
       this.store.insertBatch(batch);
       this.store.assignBatch(batch.firstSeq, batch.lastSeq, index);
+      this.store.setTxLatencies(latencies);
       for (const w of withdrawals) {
         this.store.insertWithdrawal({ txId: w.txId, batchIndex: index, wIndex: w.wIndex, recipient: w.recipient, token: w.token, amount: w.amount.toString() });
       }
     });
+    for (const [seq] of latencies) this.latencies.delete(seq);
     this.pending = rest;
     this.pendingBytes = rest.reduce((a, p) => a + p.bytes, 0);
     this.nextBatchIndex = index + 1n;
