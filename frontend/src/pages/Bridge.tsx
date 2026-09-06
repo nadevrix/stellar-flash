@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Networks, TransactionBuilder, rpc } from '@stellar/stellar-sdk';
 import { FlashApiError, FlashClient, type FlashNetworkInfo, type WithdrawalProofView } from '@flash/sdk';
 import { Logo } from '../components/Logo.tsx';
+import { AppNav } from '../components/AppNav.tsx';
 import { StatusPill, useHealth } from '../components/LiveStatus.tsx';
 import { SEQUENCER_URL } from '../lib/api.ts';
+import { fmtStroops, toStroops } from '../lib/format.ts';
 import { connectWallet, disconnectWallet, restoreWallet, signFlashMessage, signStellarTx } from '../lib/wallet.ts';
 
 const RPC_URL = 'https://soroban-testnet.stellar.org';
@@ -30,12 +32,6 @@ async function submitSigned(signedXdr: string): Promise<string> {
 }
 
 const short = (s: string) => `${s.slice(0, 6)}…${s.slice(-6)}`;
-const fmt = (stroops: bigint) => (Number(stroops) / 1e7).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 7 });
-const toStroops = (s: string): bigint => {
-  const n = Number(s);
-  if (!Number.isFinite(n) || n <= 0) throw new Error('monto inválido');
-  return BigInt(Math.round(n * 1e7));
-};
 
 /** Errores del API con mensaje humano; el resto se muestra tal cual. */
 function humanError(e: unknown): string {
@@ -58,8 +54,9 @@ export function Bridge() {
   const { health } = useHealth(6000);
   const [address, setAddress] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [flashBalance, setFlashBalance] = useState<bigint | null>(null);
+  const [flashBalance, setFlashBalance] = useState<bigint>(0n);
   const [l1Balance, setL1Balance] = useState<bigint | null>(null);
+  const [balanceReady, setBalanceReady] = useState(false);
   const [tab, setTab] = useState<Tab>('deposit');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +68,7 @@ export function Bridge() {
 
   const refresh = useCallback(async () => {
     if (!address || !token) return;
-    try { setFlashBalance(await flash.getBalance(address, token)); } catch { /* el saldo se reintenta solo */ }
+    try { setFlashBalance(await flash.getBalance(address, token)); setBalanceReady(true); } catch { /* reintenta */ }
     try {
       const res = await fetch(`${HORIZON}/accounts/${address}`);
       if (res.ok) {
@@ -118,31 +115,27 @@ export function Bridge() {
 
   return (
     <div className="min-h-dvh bg-paper font-sans text-ink">
-      <header className="border-b border-ink/10 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <a href="/"><Logo /></a>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block"><StatusPill health={health} /></div>
-            <button
-              onClick={() => void disconnectWallet().then(() => setAddress(null))}
-              className="rounded-full border border-ink/15 px-4 py-2 font-mono text-sm transition hover:border-ink/40"
-            >
-              {short(address)}
-            </button>
-          </div>
+      <AppNav badge="bridge" />
+      <main className="mx-auto max-w-3xl px-6 py-8">
+        <div className="mb-6 flex items-center justify-between">
+          <p className="font-mono text-sm text-ink/50">{short(address)} · <a href="/account" className="underline">Account</a></p>
+          <button
+            onClick={() => void disconnectWallet().then(() => setAddress(null))}
+            className="rounded-full border border-ink/15 px-4 py-2 font-mono text-sm transition hover:border-ink/40"
+          >
+            Disconnect
+          </button>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-10">
         <div className="grid gap-px overflow-hidden rounded-2xl border border-ink/12 bg-ink/10 sm:grid-cols-2">
           <div className="bg-white p-6">
             <div className="text-sm text-ink/50">On Flash</div>
-            <div className="mt-1 font-mono text-3xl font-medium">{flashBalance === null ? '—' : fmt(flashBalance)}</div>
+            <div className="mt-1 font-mono text-3xl font-medium">{balanceReady ? fmtStroops(flashBalance) : '…'}</div>
             <div className="mt-1 text-sm text-ink/45">FXLM · instant</div>
           </div>
           <div className="bg-white p-6">
             <div className="text-sm text-ink/50">On Stellar</div>
-            <div className="mt-1 font-mono text-3xl font-medium">{l1Balance === null ? '—' : fmt(l1Balance)}</div>
+            <div className="mt-1 font-mono text-3xl font-medium">{l1Balance === null ? '…' : fmtStroops(l1Balance)}</div>
             <div className="mt-1 text-sm text-ink/45">XLM · ~5 s per payment</div>
           </div>
         </div>
@@ -169,7 +162,7 @@ export function Bridge() {
         </div>
 
         <p className="mt-8 text-center text-xs text-ink/40">
-          Testnet. Los activos no tienen valor. Tu llave nunca sale de tu wallet.
+          Testnet. Need an integration? <a href="/developers" className="underline">Developers</a> · <a href="/explorer" className="underline">Explorer</a>
         </p>
       </main>
     </div>
@@ -180,7 +173,9 @@ function Connect({ onConnect, health }: { onConnect: (a: string) => void; health
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   return (
-    <div className="grid min-h-dvh place-items-center bg-paper px-6 font-sans text-ink">
+    <div className="min-h-dvh bg-paper font-sans text-ink">
+      <AppNav badge="bridge" />
+      <div className="grid place-items-center px-6 py-16">
       <div className="w-full max-w-md text-center">
         <div className="flex justify-center"><Logo /></div>
         <h1 className="mt-8 font-display text-4xl font-semibold tracking-tight">Tu cuenta de Stellar, instantánea</h1>
@@ -197,6 +192,8 @@ function Connect({ onConnect, health }: { onConnect: (a: string) => void; health
         </button>
         {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
         <div className="mt-8 flex justify-center"><StatusPill health={health} /></div>
+        <p className="mt-6 text-sm text-ink/45"><a href="/developers" className="underline">Integrating an app?</a> · <a href="/account" className="underline">Account dashboard</a></p>
+      </div>
       </div>
     </div>
   );
@@ -317,7 +314,7 @@ function Withdraw({ address, token, busy, run, pending, setPending }: {
             {pending.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl border border-ink/12 px-4 py-3">
                 <div>
-                  <div className="font-mono text-sm">{fmt(p.amount)} XLM</div>
+                  <div className="font-mono text-sm">{fmtStroops(p.amount)} XLM</div>
                   <div className="text-xs text-ink/45">
                     {!p.proof ? 'esperando al lote…'
                       : p.proof.claimable ? 'listo para reclamar'

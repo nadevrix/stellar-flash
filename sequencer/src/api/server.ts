@@ -235,6 +235,16 @@ export function createApiServer(ctx: ApiContext): Server {
       });
     }
 
+    if (req.method === 'GET' && resource === 'tokens' && !id) {
+      const KNOWN: Record<string, { symbol: string; decimals: number }> = {
+        CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC: { symbol: 'XLM', decimals: 7 },
+        CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA: { symbol: 'XLM', decimals: 7 },
+      };
+      return json(res, 200, {
+        tokens: info.allowedTokens.map((t) => ({ id: t, symbol: KNOWN[t]?.symbol ?? 'SAC', decimals: KNOWN[t]?.decimals ?? 7 })),
+      });
+    }
+
     if (req.method === 'GET' && resource === 'l1' && id === 'history') {
       return json(res, 200, { history: sequencer.store.recentHealth(Number(url.searchParams.get('limit') ?? 100)), recent: engine.monitor.history.slice(-50).map((h) => ({ at: h.at, status: h.status, latestLedger: h.latestLedger, ledgerAgeSec: h.ledgerAgeSec, feeP90: h.feeP90 })) });
     }

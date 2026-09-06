@@ -1,7 +1,6 @@
 import { Buffer } from 'buffer';
 import { StrictMode } from 'react';
 
-// `@stellar/stellar-sdk` usa `Buffer` internamente y en el navegador no existe.
 (globalThis as { Buffer?: typeof Buffer }).Buffer ??= Buffer;
 
 import { createRoot } from 'react-dom/client';
@@ -11,15 +10,23 @@ import { Landing } from './pages/Landing.tsx';
 import { Explorer } from './pages/Explorer.tsx';
 import { Developers } from './pages/Developers.tsx';
 import { Bridge } from './pages/Bridge.tsx';
+import { Account } from './pages/Account.tsx';
+import { AccountPublic } from './pages/AccountPublic.tsx';
+import { TxDetail } from './pages/TxDetail.tsx';
+import { BatchDetail } from './pages/BatchDetail.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/explorer" element={<Explorer />} />
-        <Route path="/developers" element={<Developers />} />
         <Route path="/bridge" element={<Bridge />} />
+        <Route path="/account" element={<Account />} />
+        <Route path="/accounts/:address" element={<AccountPublic />} />
+        <Route path="/explorer" element={<Explorer />} />
+        <Route path="/tx/:id" element={<TxDetail />} />
+        <Route path="/batches/:index" element={<BatchDetail />} />
+        <Route path="/developers" element={<Developers />} />
         <Route path="*" element={<Landing />} />
       </Routes>
     </BrowserRouter>

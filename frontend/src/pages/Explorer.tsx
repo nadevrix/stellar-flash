@@ -1,18 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Logo } from '../components/Logo.tsx';
+import { Link } from 'react-router-dom';
+import { AppNav } from '../components/AppNav.tsx';
 import { useHealth } from '../components/LiveStatus.tsx';
 import {
   SEQUENCER_URL, fetchBatches, fetchL1History, fetchStats, fetchTxs,
   type BatchRow, type HealthPoint, type Stats, type TxRow,
 } from '../lib/api.ts';
-
-const EXPERT_TX = (h: string) => `https://stellar.expert/explorer/testnet/tx/${h}`;
-const short = (s: string, n = 6) => `${s.slice(0, n)}…${s.slice(-4)}`;
-const ms = (us: number) => `${(us / 1000).toFixed(us < 10_000 ? 2 : 0)} ms`;
-const ago = (t: number) => {
-  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
-  return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m` : `${Math.floor(s / 3600)}h`;
-};
+import { EXPERT, ms, ago, short } from '../lib/format.ts';
 
 /** Sondea `fn` cada `everyMs`. Un fallo puntual no borra lo que ya se mostraba. */
 function usePoll<T>(fn: (s: AbortSignal) => Promise<T>, everyMs: number): T | null {
@@ -30,12 +24,6 @@ function usePoll<T>(fn: (s: AbortSignal) => Promise<T>, everyMs: number): T | nu
   }, [everyMs]);
   return data;
 }
-
-const STATUS = {
-  HEALTHY: { label: 'Healthy', dot: 'bg-teal', text: 'text-teal' },
-  DEGRADED: { label: 'Degraded', dot: 'bg-gold', text: 'text-gold' },
-  DOWN: { label: 'Down', dot: 'bg-red-400', text: 'text-red-400' },
-} as const;
 
 const BATCH_TONE: Record<BatchRow['status'], string> = {
   sealed: 'border-white/20 text-white/60',
@@ -94,26 +82,10 @@ export function Explorer() {
   const batches = usePoll(fetchBatches.bind(null, 12), 4000);
   const stats = usePoll<Stats>((s) => fetchStats(60, s), 5000);
   const history = usePoll(fetchL1History, 5000);
-  const tone = health ? STATUS[health.l1.status] : null;
 
   return (
     <div className="min-h-dvh bg-ink font-sans text-white">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-ink/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-5">
-            <a href="/"><Logo onDark /></a>
-            <span className="hidden font-mono text-xs text-white/35 sm:inline">explorer</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="rounded-full border border-white/12 px-3 py-1.5 font-mono text-xs text-white/55">testnet</span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-medium">
-              <span className={`pulse-dot h-1.5 w-1.5 rounded-full ${tone?.dot ?? 'bg-warm'}`} />
-              <span className="text-white/60">Stellar</span>
-              <span className={tone?.text ?? 'text-white/40'}>{tone?.label ?? '…'}</span>
-            </span>
-          </div>
-        </div>
-      </header>
+      <AppNav variant="dark" badge="explorer" />
 
       <main className="mx-auto max-w-7xl px-6 py-8">
         {/* Métricas */}
@@ -152,7 +124,7 @@ export function Explorer() {
                 <ul className="divide-y divide-white/8">
                   {batches.map((b) => (
                     <li key={b.index} className="flex items-center justify-between gap-3 px-5 py-3">
-                      <div className="min-w-0">
+                      <a href={`/batches/${b.index}`} className="min-w-0 flex-1 hover:opacity-80">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-sm">#{b.index}</span>
                           <span className={`rounded-full border px-2 py-0.5 text-[11px] ${BATCH_TONE[b.status]}`}>{b.status}</span>
@@ -160,9 +132,9 @@ export function Explorer() {
                         <div className="mt-0.5 text-xs text-white/40">
                           {b.txCount} tx · {b.txDataBytes} B · sealed {ago(b.sealedAt)} ago
                         </div>
-                      </div>
+                      </a>
                       {b.l1TxHash ? (
-                        <a href={EXPERT_TX(b.l1TxHash)} target="_blank" rel="noreferrer"
+                        <a href={EXPERT.tx(b.l1TxHash)} target="_blank" rel="noreferrer"
                            className="shrink-0 font-mono text-xs text-white/50 underline decoration-white/20 underline-offset-4 hover:text-gold">
                           {short(b.l1TxHash)}
                         </a>
@@ -196,18 +168,23 @@ const TYPE_TONE: Record<TxRow['type'], string> = {
 };
 
 function TxLine({ t }: { t: TxRow }) {
-  const who = t.type === 'deposit' ? t.to : t.type === 'withdraw' ? t.from : `${short(t.from ?? '', 4)} → ${short(t.to ?? '', 4)}`;
+  const addr = t.type === 'deposit' ? t.to : t.type === 'withdraw' ? t.from : null;
+  const who = t.type === 'transfer' ? `${short(t.from ?? '', 4)} → ${short(t.to ?? '', 4)}` : short(addr ?? '', 6);
   return (
-    <li className="rise flex items-center justify-between gap-4 px-5 py-3">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${TYPE_TONE[t.type]}`}>{t.type}</span>
-        <span className="truncate font-mono text-sm text-white/70">{t.type === 'transfer' ? who : short(who ?? '', 6)}</span>
+    <li className="rise flex items-center justify-between gap-4 px-5 py-3 transition hover:bg-white/[0.03]">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <Link to={`/tx/${t.id}`} className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${TYPE_TONE[t.type]}`}>{t.type}</Link>
+        {addr ? (
+          <Link to={`/accounts/${addr}`} className="truncate font-mono text-sm text-white/70 hover:text-gold">{who}</Link>
+        ) : (
+          <Link to={`/tx/${t.id}`} className="truncate font-mono text-sm text-white/70">{who}</Link>
+        )}
       </div>
-      <div className="flex shrink-0 items-center gap-4 text-right">
+      <Link to={`/tx/${t.id}`} className="flex shrink-0 items-center gap-4 text-right">
         <span className="font-mono text-sm tabular-nums">{(Number(t.amount) / 1e7).toFixed(2)}</span>
         <span className="w-20 font-mono text-xs tabular-nums text-gold">{ms(t.latencyUs)}</span>
         <span className="w-16 font-mono text-xs text-white/30">{t.batchIndex === null ? 'pending' : `#${t.batchIndex}`}</span>
-      </div>
+      </Link>
     </li>
   );
 }

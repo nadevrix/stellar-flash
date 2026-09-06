@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Logo } from '../components/Logo.tsx';
-import { StatusPill, useHealth } from '../components/LiveStatus.tsx';
+import { AppNav } from '../components/AppNav.tsx';
+import { useHealth } from '../components/LiveStatus.tsx';
 import { SEQUENCER_URL } from '../lib/api.ts';
 
 const PKG = 'stellar-flash-sdk';
@@ -53,20 +53,9 @@ export function Developers() {
 
   return (
     <div className="min-h-dvh bg-white font-sans text-ink">
-      <header className="sticky top-0 z-40 border-b border-ink/8 bg-white/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-5">
-            <a href="/"><Logo /></a>
-            <span className="hidden font-mono text-xs text-ink/35 sm:inline">developers</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block"><StatusPill health={health} /></div>
-            <a href="/explorer" className="rounded-full border border-ink/15 px-4 py-2 text-sm font-medium transition hover:border-ink/40">Explorer</a>
-          </div>
-        </div>
-      </header>
+      <AppNav badge="developers" />
 
-      <main className="mx-auto max-w-5xl px-6 py-16">
+      <main className="mx-auto max-w-5xl px-6 py-12">
         <p className="font-mono text-sm uppercase tracking-widest text-warm">Developers</p>
         <h1 className="mt-4 font-display text-5xl font-semibold leading-[1.1] tracking-tight">
           Integrate Flash in an afternoon
@@ -88,6 +77,15 @@ export function Developers() {
         </div>
 
         <div className="mt-16 space-y-14">
+          <Section id="product" title="Product map">
+            <ul className="list-inside list-disc space-y-2 text-ink/70">
+              <li><a href="/bridge" className="underline">Bridge</a> — on-ramp / off-ramp for wallets (deposit, pay, withdraw)</li>
+              <li><a href="/account" className="underline">Account</a> — balances and history for your connected wallet</li>
+              <li><a href="/explorer" className="underline">Explorer</a> — live network feed, batches, Stellar health</li>
+              <li><a href={`${GITHUB}/tree/main/examples`} target="_blank" rel="noreferrer" className="underline">examples/</a> — bounty payouts script (<code className="font-mono text-sm">examples/bounty-pay.ts</code>)</li>
+            </ul>
+          </Section>
+
           <Section id="install" title="Install">
             <p>The SDK is a thin client over the HTTP API. <code className="font-mono text-ink">@stellar/stellar-sdk</code> is a peer dependency, so your project keeps a single copy of it.</p>
             <Code lang="bash">{`npm install ${PKG} @stellar/stellar-sdk`}</Code>

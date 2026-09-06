@@ -59,3 +59,34 @@ export const fetchStats = (windowSec = 60, signal?: AbortSignal) =>
   get<Stats>(`/v1/stats?window=${windowSec}`, signal);
 export const fetchL1History = (signal?: AbortSignal) =>
   get<{ recent: HealthPoint[] }>(`/v1/l1/history`, signal).then((r) => r.recent);
+
+export interface AccountBalance { token: string; balance: string; nonce: string }
+export interface AccountTx {
+  id: string; seq: number; type: 'deposit' | 'transfer' | 'withdraw';
+  from: string | null; to: string | null; token: string; amount: string;
+  batchIndex: string | null; createdAt: number;
+}
+export interface AccountView {
+  account: string; balances: AccountBalance[]; transactions: AccountTx[];
+}
+
+export interface TxDetail {
+  id: string; seq: number; type: string; createdAt: number; latencyUs: number;
+  finality: { l2: string; l1: string };
+  batch: BatchRow | null;
+}
+
+export interface TokenMeta { id: string; symbol: string; decimals: number }
+
+export const fetchAccount = (address: string, limit = 50, signal?: AbortSignal) =>
+  get<AccountView>(`/v1/accounts/${address}?limit=${limit}`, signal);
+
+export const fetchTx = (id: string, signal?: AbortSignal) =>
+  get<TxDetail>(`/v1/transactions/${id}`, signal);
+
+export const fetchBatch = (index: string, withData = false, signal?: AbortSignal) =>
+  get<{ batch: BatchRow & { txData?: string }; withdrawals: { txId: string; recipient: string; amount: string }[] }>(
+    `/v1/batches/${index}${withData ? '?data=1' : ''}`, signal);
+
+export const fetchTokens = (signal?: AbortSignal) =>
+  get<{ tokens: TokenMeta[] }>(`/v1/tokens`, signal).catch(() => ({ tokens: [{ id: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC', symbol: 'XLM', decimals: 7 }] }));

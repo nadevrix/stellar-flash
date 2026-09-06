@@ -33,8 +33,10 @@ function Nav() {
           <a href="#problem" className="transition hover:text-ink">The problem</a>
           <a href="#how" className="transition hover:text-ink">How it works</a>
           <a href="#live" className="transition hover:text-ink">Live</a>
-          <a href="/developers" className="transition hover:text-ink">Docs</a>
+          <a href="#app" className="transition hover:text-ink">App</a>
+          <a href="/developers" className="transition hover:text-ink">Developers</a>
           <a href="/explorer" className="transition hover:text-ink">Explorer</a>
+          <a href="/account" className="transition hover:text-ink">Account</a>
           <a href="/bridge" className="transition hover:text-ink">Bridge</a>
         </div>
         <div className="flex items-center gap-3">
@@ -64,7 +66,7 @@ function Hero() {
         </p>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <CtaPill href="/bridge">Try on testnet</CtaPill>
-          <CtaPill href="#developers">Start building</CtaPill>
+          <CtaPill href="/developers">Start building</CtaPill>
           <a href="#live" className="inline-flex items-center rounded-full border border-ink/15 px-6 py-3 font-medium transition hover:border-ink/40 hover:bg-white">
             See it live
           </a>
@@ -180,6 +182,40 @@ function How() {
             </li>
           ))}
         </ol>
+      </div>
+    </section>
+  );
+}
+
+function TryApp() {
+  const apps = [
+    ['Bridge', '/bridge', 'Deposit testnet XLM, pay anyone instantly, withdraw back to Stellar. Connect Freighter on testnet.'],
+    ['Account', '/account', 'Your dashboard: Flash balances, payment history, links to claim withdrawals. Same G… address, no signup.'],
+    ['Explorer', '/explorer', 'Live feed of every payment, batch settlement on L1, Stellar network health probes.'],
+    ['Developers', '/developers', 'SDK install, API reference, and examples/bounty-pay.ts for app integrations.'],
+  ] as const;
+  return (
+    <section id="app" className="bg-white">
+      <div className="mx-auto max-w-6xl px-6 py-28">
+        <p className="font-mono text-sm uppercase tracking-widest text-warm">Use it now</p>
+        <h2 className="mt-5 max-w-2xl font-display text-4xl font-semibold leading-[1.15] tracking-tight sm:text-5xl">
+          Everything is in the app — nothing to imagine
+        </h2>
+        <p className="mt-7 max-w-2xl text-lg leading-relaxed text-ink/65">
+          Start at <a href="/bridge" className="font-medium text-ink underline decoration-ink/20">Bridge</a>, then
+          check <a href="/account" className="font-medium text-ink underline decoration-ink/20">Account</a> for your balances.
+          Integrators go to <a href="/developers" className="font-medium text-ink underline decoration-ink/20">Developers</a>.
+        </p>
+        <div className="mt-12 grid gap-4 sm:grid-cols-2">
+          {apps.map(([title, href, desc]) => (
+            <a key={href} href={href}
+               className="group rounded-2xl border border-ink/12 p-7 transition hover:border-ink/30 hover:bg-paper">
+              <h3 className="font-display text-xl font-semibold group-hover:text-ink">{title}</h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink/60">{desc}</p>
+              <span className="mt-4 inline-block text-sm font-medium text-ink/45 group-hover:text-ink">Open →</span>
+            </a>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -342,6 +378,7 @@ export function Landing() {
         <Numbers />
         <Problem />
         <How />
+        <TryApp />
         <Live />
         <Developers />
       </main>
