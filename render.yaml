@@ -60,12 +60,16 @@ services:
     name: stellar-flash
     runtime: static
     branch: main
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
+    # El frontend importa sdk/ y protocol/ del repo; hay que instalar deps en la raíz primero.
+    buildCommand: npm ci --omit=dev && cd frontend && npm ci && npm run build
+    staticPublishPath: frontend/dist
     buildFilter:
       paths:
         - frontend/**
+        - sdk/**
+        - protocol/**
+        - package.json
+        - package-lock.json
     # SPA: /explorer lo resuelve el router en el navegador, así que cualquier ruta
     # que no sea un fichero debe servir index.html en lugar de dar 404.
     routes:
