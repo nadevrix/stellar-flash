@@ -73,7 +73,7 @@ export function LivePanel() {
             every 4 seconds.
           </p>
         </div>
-        <StatusPill health={health} onDark />
+        <StatusPill health={health} onDark compact />
       </div>
 
       {error && (

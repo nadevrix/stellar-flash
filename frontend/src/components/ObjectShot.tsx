@@ -42,18 +42,20 @@ export function ObjectShot({
 }: { name: ObjectName; alt: string; className?: string; size?: string }) {
   const [failed, setFailed] = useState(false);
   return (
-    <div className={`relative grid place-items-center ${size} ${className}`}>
+    <div className={`relative grid shrink-0 place-items-center ${size} ${className}`}>
       <div className="absolute inset-0 rounded-full bg-gold" />
-      {failed ? (
-        <svg viewBox="0 0 100 100" className="relative h-[62%] w-[62%] text-ink" role="img" aria-label={alt}>
-          {ART[name]}
-        </svg>
-      ) : (
-        <img
-          src={`/objects/${name}.png`} alt={alt} onError={() => setFailed(true)}
-          className="relative h-[82%] w-[82%] object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,.18)]"
-        />
-      )}
+      <div className="relative flex h-[84%] w-[84%] items-center justify-center">
+        {failed ? (
+          <svg viewBox="0 0 100 100" className="h-full w-full text-ink" role="img" aria-label={alt}>
+            {ART[name]}
+          </svg>
+        ) : (
+          <img
+            src={`/objects/${name}.png`} alt={alt} onError={() => setFailed(true)}
+            className="max-h-full max-w-full object-contain object-center drop-shadow-[0_10px_20px_rgba(0,0,0,.18)]"
+          />
+        )}
+      </div>
     </div>
   );
 }

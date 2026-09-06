@@ -243,7 +243,7 @@ function Live() {
   return (
     <section id="live" className="bg-ink text-white">
       <div className="mx-auto max-w-6xl px-6 py-28">
-        <div className="grid items-end gap-10 lg:grid-cols-[1fr_auto]">
+        <div className="grid items-center gap-12 lg:grid-cols-[1fr_auto] lg:gap-16">
           <div>
             <p className="font-mono text-sm uppercase tracking-widest text-gold">Live</p>
             <h2 className="mt-5 max-w-2xl font-display text-4xl font-semibold leading-[1.15] tracking-tight sm:text-5xl">
@@ -254,7 +254,12 @@ function Live() {
               on-chain where anyone can inspect it.
             </p>
           </div>
-          <ObjectShot name="stopwatch" alt="A stopwatch frozen just past zero" size="h-40 w-40" className="hidden lg:block" />
+          <ObjectShot
+            name="stopwatch"
+            alt="A stopwatch frozen just past zero"
+            size="h-56 w-56 sm:h-64 sm:w-64 lg:h-72 lg:w-72"
+            className="mx-auto lg:mx-0 lg:justify-self-end"
+          />
         </div>
         <div className="mt-14"><LivePanel /></div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
