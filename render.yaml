@@ -43,7 +43,7 @@ services:
       - key: NETWORK_PASSPHRASE
         value: Test SDF Network ; September 2015
       - key: RPC_URLS
-        value: https://soroban-testnet.stellar.org
+        value: https://soroban-testnet.stellar.org,https://stellar-soroban-testnet-public.nodies.app
       - key: ALLOWED_TOKENS
         value: CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
       - key: CHALLENGE_PERIOD_LEDGERS

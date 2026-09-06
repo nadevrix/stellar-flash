@@ -35,6 +35,7 @@ function Nav() {
           <a href="#live" className="transition hover:text-ink">Live</a>
           <a href="/developers" className="transition hover:text-ink">Docs</a>
           <a href="/explorer" className="transition hover:text-ink">Explorer</a>
+          <a href="/bridge" className="transition hover:text-ink">Bridge</a>
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden sm:block"><StatusPill health={health} /></div>
@@ -62,6 +63,7 @@ function Hero() {
           in a Soroban contract and leave only with a Merkle proof. What changes is the wait.
         </p>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
+          <CtaPill href="/bridge">Try on testnet</CtaPill>
           <CtaPill href="#developers">Start building</CtaPill>
           <a href="#live" className="inline-flex items-center rounded-full border border-ink/15 px-6 py-3 font-medium transition hover:border-ink/40 hover:bg-white">
             See it live

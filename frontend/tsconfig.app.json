@@ -4,9 +4,15 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@flash/sdk": ["../sdk/src/index.ts"],
+      "@flash/sdk/*": ["../sdk/src/*"]
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",
