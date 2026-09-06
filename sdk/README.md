@@ -70,8 +70,9 @@ desaparece, los fondos salen igual.
 
 ## Notas
 
-- Requiere Node ≥ 20. El paquete es de servidor: el protocolo usa `node:crypto`. Para el navegador
-  hará falta un build con sha256 portable.
+- Funciona en servidor y en navegador: el protocolo no depende de `node:crypto` ni de `Buffer`.
+  En el navegador, `@stellar/stellar-sdk` sí necesita un polyfill de `Buffer` (lo trae cualquier
+  plantilla moderna de Vite o Next).
 - `@stellar/stellar-sdk` ^17 es *peer dependency*: se usa la copia de tu proyecto.
 - Software en testnet. Los activos de testnet no valen nada.
 

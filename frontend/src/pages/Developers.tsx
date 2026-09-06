@@ -91,7 +91,7 @@ export function Developers() {
           <Section id="install" title="Install">
             <p>The SDK is a thin client over the HTTP API. <code className="font-mono text-ink">@stellar/stellar-sdk</code> is a peer dependency, so your project keeps a single copy of it.</p>
             <Code lang="bash">{`npm install ${PKG} @stellar/stellar-sdk`}</Code>
-            <p className="text-ink/55">Node ≥ 20. The package is server-side: the protocol uses <code className="font-mono">node:crypto</code> for hashing.</p>
+            <p className="text-ink/55">Works on the server and in the browser — the protocol has no Node-only dependencies, so your dapp can build the message the wallet signs instead of trusting a backend to hand it over.</p>
           </Section>
 
           <Section id="pay" title="Send a payment">

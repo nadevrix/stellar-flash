@@ -18,6 +18,7 @@
     "contract:build": "cd contracts && cargo build --target wasm32v1-none --release -p flash-bridge"
   },
   "dependencies": {
+    "@noble/hashes": "^2.4.0",
     "@stellar/stellar-sdk": "^17.0.1"
   },
   "devDependencies": {

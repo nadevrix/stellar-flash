@@ -49,10 +49,13 @@ node scripts/testnet-e2e.ts             # depósito → pago → lote → retiro
    cd contracts && cargo test print_vectors -- --nocapture
    ```
 2. **`escape` y `reclaim_deposit` nunca se pueden pausar.** El admin no puede bloquear la salida de emergencia; hay un test que lo verifica. Es lo que hace que el sistema no sea custodial.
-3. **El secuenciador no puede depender de un solo RPC.** Failover y monitor de salud son obligatorios; un endpoint caído no puede tumbar el servicio.
-4. **El secuenciador debe arrancar aunque Stellar esté caída.** Los pagos L2 no dependen de la L1; los lotes esperan. Cualquier `await` a la L1 en el arranque va con `try/catch` y reintento en segundo plano.
-5. **Orden en `submit`: validar → persistir → aplicar.** El log es la fuente de verdad; el estado en memoria se reconstruye desde él.
-6. **Un solo secuenciador.** Dos instancias firmando `commit_batch` corrompen la secuencia de la cuenta. El despliegue debe ser de instancia única.
+3. **El protocolo no puede depender de Node.** Nada de `node:crypto` ni `Buffer` en `protocol/`:
+   ese código corre también en el navegador, donde la dapp construye el mensaje que firma la wallet.
+   Que lo construya el cliente es lo que impide que un backend malicioso te haga firmar otro pago.
+4. **El secuenciador no puede depender de un solo RPC.** Failover y monitor de salud son obligatorios; un endpoint caído no puede tumbar el servicio.
+5. **El secuenciador debe arrancar aunque Stellar esté caída.** Los pagos L2 no dependen de la L1; los lotes esperan. Cualquier `await` a la L1 en el arranque va con `try/catch` y reintento en segundo plano.
+6. **Orden en `submit`: validar → persistir → aplicar.** El log es la fuente de verdad; el estado en memoria se reconstruye desde él.
+7. **Un solo secuenciador.** Dos instancias firmando `commit_batch` corrompen la secuencia de la cuenta. El despliegue debe ser de instancia única.
 
 ## 5. Estilo de código
 
