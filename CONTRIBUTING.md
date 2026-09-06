@@ -86,6 +86,25 @@ node scripts/testnet-e2e.ts             # depósito → pago → lote → retiro
   La confirmación en L2 es mucho más rápida; el techo está en la disponibilidad de datos, y es lo
   que ataca la fase ZK con compresión. Reproducir con `node scripts/measure-batch-cost.ts`.
 
+**Límite de escala conocido: la raíz del estado (medido, sep-2026)**
+`FlashState.root()` **reconstruye el árbol Merkle entero** en cada llamada, y se llama al sellar
+cada lote. Coste medido: **~31 µs por cuenta**, lineal.
+
+| Cuentas | Tiempo por raíz |
+|---|---|
+| 1 000 | 47 ms |
+| 10 000 | 316 ms |
+| 50 000 | 1 569 ms |
+
+Con `SEAL_INTERVAL_MS=2000` el muro está en **~50–65 mil cuentas**: a partir de ahí calcular la raíz
+tarda más que el intervalo de sellado y el secuenciador se queda atrás. Hoy es de sobra suficiente,
+pero es el primer límite duro que se encontrará.
+
+**Arreglo**: árbol Merkle incremental — actualizar solo el camino de la hoja modificada a la raíz
+(O(log n): ~20 hashes en vez de un millón). **Toca el contrato**, porque `verify_proof` valida contra
+la misma estructura, así que hay que cambiar Rust, TypeScript y `spec/merkle-vectors.txt` a la vez.
+Reproducir el número antes de tocar nada.
+
 **Stellar RPC**
 - La respuesta de `getLatestLedger` supera los 4 KB (lleva `metadataXdr`), así que llega **en varios chunks**: acumula stdin antes de parsear o tendrás un `Unterminated string in JSON`.
 - `sendTransaction` devuelve `PENDING`, no éxito: hay que hacer polling de `getTransaction`.

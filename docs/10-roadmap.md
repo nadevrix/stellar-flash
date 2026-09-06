@@ -36,6 +36,15 @@ No hecho:
 - Postgres + réplica pasiva; API keys; métricas.
 - **Mainnet limitado** (límite de depósito por cuenta, tokens XLM/USDC).
 
+### Fase 2.5 · Escala del estado y firma legible
+Dos cambios que tocan contrato + protocolo + vectores a la vez, así que van juntos:
+- **Árbol Merkle incremental.** Hoy `root()` reconstruye el árbol entero en cada lote: ~31 µs por
+  cuenta (medido), lo que pone un muro en ~50–65 mil cuentas con sellado cada 2 s. Con
+  actualización incremental pasa a O(log n) y deja de ser un límite.
+- **Mensaje de firma legible.** Hoy el usuario firma bytes binarios y la wallet le enseña
+  hexadecimal: no puede leer "pagar 10 XLM a G…". Cambiar el formato del mensaje a texto legible
+  cierra ese hueco de confianza.
+
 ### Fase 3 · ZK (2–4 meses)
 - Poseidon2 en hojas/nodos; circuito de transición de estado (Noir/Circom) o zkVM (RISC Zero) con verificador Groth16/UltraHonk en Soroban (BN254, P25).
 - `commit_batch_zk`: sin periodo de desafío → retiros en 1 ledger.
