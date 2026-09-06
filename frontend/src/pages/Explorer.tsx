@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AppNav } from '../components/AppNav.tsx';
 import { useHealth } from '../components/LiveStatus.tsx';
+import { Alert, Card, CardHeader, PageHeader, StatTile } from '../components/ui/Lab.tsx';
 import {
   SEQUENCER_URL, fetchBatches, fetchL1History, fetchStats, fetchTxs,
   type BatchRow, type HealthPoint, type Stats, type TxRow,
 } from '../lib/api.ts';
 import { EXPERT, ms, ago, short } from '../lib/format.ts';
 
-/** Sondea `fn` cada `everyMs`. Un fallo puntual no borra lo que ya se mostraba. */
 function usePoll<T>(fn: (s: AbortSignal) => Promise<T>, everyMs: number): T | null {
   const [data, setData] = useState<T | null>(null);
   useEffect(() => {
     const ctrl = new AbortController();
     let timer: number;
     const tick = async () => {
-      try { setData(await fn(ctrl.signal)); } catch { /* se reintenta en el siguiente ciclo */ }
+      try { setData(await fn(ctrl.signal)); } catch { /* reintenta */ }
       timer = window.setTimeout(tick, everyMs);
     };
     void tick();
@@ -26,36 +25,19 @@ function usePoll<T>(fn: (s: AbortSignal) => Promise<T>, everyMs: number): T | nu
 }
 
 const BATCH_TONE: Record<BatchRow['status'], string> = {
-  sealed: 'border-white/20 text-white/60',
-  committed: 'border-gold/40 text-gold',
-  finalized: 'border-teal/40 text-teal',
+  sealed: 'border-border text-muted bg-surface',
+  committed: 'border-teal/30 text-teal bg-teal/5',
+  finalized: 'border-lab-purple/30 text-lab-purple bg-lab-purple/5',
 };
 
-function Panel({ title, hint, children, className = '' }: { title: string; hint?: string; children: React.ReactNode; className?: string }) {
-  return (
-    <section className={`rounded-2xl border border-white/12 bg-white/[0.02] ${className}`}>
-      <header className="flex items-baseline justify-between border-b border-white/10 px-5 py-3.5">
-        <h2 className="font-display text-base font-semibold">{title}</h2>
-        {hint && <span className="font-mono text-xs text-white/35">{hint}</span>}
-      </header>
-      {children}
-    </section>
-  );
-}
+const TYPE_TONE: Record<TxRow['type'], string> = {
+  deposit: 'border-teal/30 text-teal bg-teal/5',
+  transfer: 'border-border text-muted bg-surface',
+  withdraw: 'border-gold/40 text-amber-700 bg-gold/10',
+};
 
-function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="px-5 py-4">
-      <div className="font-mono text-2xl font-medium tabular-nums">{value}</div>
-      <div className="mt-1 text-sm text-white/50">{label}</div>
-      {sub && <div className="text-xs text-white/30">{sub}</div>}
-    </div>
-  );
-}
-
-/** Historia de salud de la L1: cada barra es una sonda. Aquí se ve la tesis del producto. */
 function HealthStrip({ points }: { points: HealthPoint[] }) {
-  if (points.length === 0) return <p className="px-5 py-8 text-sm text-white/40">Sin sondas todavía.</p>;
+  if (points.length === 0) return <p className="px-5 py-8 text-sm text-muted">No probes yet.</p>;
   return (
     <div className="px-5 py-5">
       <div className="flex h-16 items-end gap-[3px]">
@@ -64,126 +46,124 @@ function HealthStrip({ points }: { points: HealthPoint[] }) {
           const c = p.status === 'DOWN' ? 'bg-red-400/80' : p.status === 'DEGRADED' ? 'bg-gold/80' : 'bg-teal/70';
           return (
             <div key={i} className={`flex-1 rounded-sm ${c}`} style={{ height: `${h}%` }}
-                 title={`${new Date(p.at).toLocaleTimeString()} · ${p.status} · ledger ${p.latestLedger} (${p.ledgerAgeSec}s) · fee p90 ${p.feeP90}`} />
+                 title={`${new Date(p.at).toLocaleTimeString()} · ${p.status} · ledger ${p.latestLedger}`} />
           );
         })}
       </div>
-      <p className="mt-3 text-xs text-white/35">
-        Each bar is a probe to Stellar’s RPC; taller means an older ledger.
-        Red means the network is down — and Flash payments keep confirming anyway.
+      <p className="mt-3 text-xs text-muted">
+        Each bar is a probe to Stellar RPC. Red = network down — Flash payments keep confirming anyway.
       </p>
     </div>
   );
 }
 
 export function Explorer() {
-  const { health } = useHealth(3000);
+  const { health, error: healthError } = useHealth(3000);
   const txs = usePoll(fetchTxs.bind(null, 25), 2000);
   const batches = usePoll(fetchBatches.bind(null, 12), 4000);
   const stats = usePoll<Stats>((s) => fetchStats(60, s), 5000);
   const history = usePoll(fetchL1History, 5000);
 
   return (
-    <div className="min-h-dvh bg-ink font-sans text-white">
-      <AppNav variant="dark" badge="explorer" />
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        eyebrow="Transactions"
+        title="Live network feed"
+        description="Every Flash payment, batch settlement on Stellar, and network health — polled from the sequencer."
+      />
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        {/* Métricas */}
-        <div className="grid gap-px overflow-hidden rounded-2xl border border-white/12 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-ink"><Metric label="Confirmation p50" value={stats ? ms(stats.l2.latencyP50Us) : '—'} sub={stats ? `p99 ${ms(stats.l2.latencyP99Us)}` : undefined} /></div>
-          <div className="bg-ink"><Metric label="Payments per second" value={stats ? stats.l2.txsPerSec.toFixed(2) : '—'} sub={stats ? `${stats.l2.txs} in the last ${stats.windowSec}s` : undefined} /></div>
-          <div className="bg-ink"><Metric label="Batches on Stellar" value={stats ? String(stats.l1.batchesCommitted) : '—'} sub={stats?.l1.avgSealToCommitMs !== null && stats ? `${(stats.l1.avgSealToCommitMs! / 1000).toFixed(1)}s from seal to L1` : undefined} /></div>
-          <div className="bg-ink"><Metric label="Accounts" value={stats ? String(stats.l2.accounts) : '—'} sub={stats ? `${stats.l2.totalTxs} payments total` : undefined} /></div>
-        </div>
+      {healthError && (
+        <Alert tone="error">
+          Cannot reach the sequencer ({healthError}). Restart <strong>stellar-flash-sequencer</strong> on Render.
+        </Alert>
+      )}
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.15fr_1fr]">
-          {/* Feed */}
-          <Panel title="Live payments" hint="every 2s">
-            {!txs ? (
-              <p className="px-5 py-8 text-sm text-white/40">Connecting to the sequencer…</p>
-            ) : txs.length === 0 ? (
-              <p className="px-5 py-8 text-sm text-white/40">No payments yet.</p>
+      <Card className="mb-6 grid overflow-hidden sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile label="Confirmation p50" value={stats ? ms(stats.l2.latencyP50Us) : '—'} sub={stats ? `p99 ${ms(stats.l2.latencyP99Us)}` : undefined} />
+        <div className="border-t border-border sm:border-t-0 sm:border-l"><StatTile label="Payments / sec" value={stats ? stats.l2.txsPerSec.toFixed(2) : '—'} sub={stats ? `${stats.l2.txs} in ${stats.windowSec}s` : undefined} /></div>
+        <div className="border-t border-border lg:border-t-0 lg:border-l"><StatTile label="Batches on Stellar" value={stats ? String(stats.l1.batchesCommitted) : '—'} /></div>
+        <div className="border-t border-border lg:border-t-0 lg:border-l"><StatTile label="Accounts" value={stats ? String(stats.l2.accounts) : '—'} sub={stats ? `${stats.l2.totalTxs} payments total` : undefined} /></div>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
+        <Card>
+          <CardHeader title="Live payments" hint="every 2s" />
+          {!txs ? (
+            <p className="px-5 py-8 text-sm text-muted">Connecting to the sequencer…</p>
+          ) : txs.length === 0 ? (
+            <p className="px-5 py-8 text-sm text-muted">No payments yet.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {txs.map((t) => <TxLine key={t.id} t={t} />)}
+            </ul>
+          )}
+        </Card>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader title="Stellar network health" hint={health ? `ledger #${health.l1.latestLedger.toLocaleString()}` : undefined} />
+            <HealthStrip points={history ?? []} />
+          </Card>
+
+          <Card>
+            <CardHeader title="Batches" hint="settled on Stellar" />
+            {!batches ? (
+              <p className="px-5 py-8 text-sm text-muted">Loading…</p>
             ) : (
-              <ul className="divide-y divide-white/8">
-                {txs.map((t) => <TxLine key={t.id} t={t} />)}
+              <ul className="divide-y divide-border">
+                {batches.map((b) => (
+                  <li key={b.index} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <Link to={`/batches/${b.index}`} className="min-w-0 flex-1 hover:opacity-80">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm">#{b.index}</span>
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${BATCH_TONE[b.status]}`}>{b.status}</span>
+                      </div>
+                      <div className="mt-0.5 text-xs text-muted">
+                        {b.txCount} tx · sealed {ago(b.sealedAt)} ago
+                      </div>
+                    </Link>
+                    {b.l1TxHash ? (
+                      <a href={EXPERT.tx(b.l1TxHash)} target="_blank" rel="noreferrer"
+                         className="shrink-0 font-mono text-xs text-lab-purple underline">{short(b.l1TxHash)}</a>
+                    ) : (
+                      <span className="shrink-0 text-xs text-muted">waiting for L1</span>
+                    )}
+                  </li>
+                ))}
               </ul>
             )}
-          </Panel>
-
-          <div className="space-y-6">
-            {/* Salud L1 */}
-            <Panel title="Stellar network health" hint={health ? `ledger #${health.l1.latestLedger.toLocaleString('en-US')}` : undefined}>
-              <HealthStrip points={history ?? []} />
-            </Panel>
-
-            {/* Lotes */}
-            <Panel title="Batches" hint="settled on Stellar">
-              {!batches ? (
-                <p className="px-5 py-8 text-sm text-white/40">Loading…</p>
-              ) : (
-                <ul className="divide-y divide-white/8">
-                  {batches.map((b) => (
-                    <li key={b.index} className="flex items-center justify-between gap-3 px-5 py-3">
-                      <a href={`/batches/${b.index}`} className="min-w-0 flex-1 hover:opacity-80">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm">#{b.index}</span>
-                          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${BATCH_TONE[b.status]}`}>{b.status}</span>
-                        </div>
-                        <div className="mt-0.5 text-xs text-white/40">
-                          {b.txCount} tx · {b.txDataBytes} B · sealed {ago(b.sealedAt)} ago
-                        </div>
-                      </a>
-                      {b.l1TxHash ? (
-                        <a href={EXPERT.tx(b.l1TxHash)} target="_blank" rel="noreferrer"
-                           className="shrink-0 font-mono text-xs text-white/50 underline decoration-white/20 underline-offset-4 hover:text-gold">
-                          {short(b.l1TxHash)}
-                        </a>
-                      ) : (
-                        <span className="shrink-0 font-mono text-xs text-white/25">waiting for L1</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Panel>
-          </div>
+          </Card>
         </div>
+      </div>
 
-        <p className="mt-8 text-center text-xs text-white/30">
-          Reading{' '}
-          <a href={`${SEQUENCER_URL}/v1/health`} target="_blank" rel="noreferrer" className="underline decoration-white/20 underline-offset-4 hover:text-gold">
-            {SEQUENCER_URL.replace('https://', '')}
-          </a>{' '}
-          · testnet assets have no value
-        </p>
-      </main>
+      <p className="mt-8 text-center text-xs text-muted">
+        Reading{' '}
+        <a href={`${SEQUENCER_URL}/v1/health`} target="_blank" rel="noreferrer" className="text-lab-purple underline">
+          {SEQUENCER_URL.replace('https://', '')}
+        </a>
+        {' · '}testnet assets have no value
+      </p>
     </div>
   );
 }
-
-const TYPE_TONE: Record<TxRow['type'], string> = {
-  deposit: 'border-teal/40 text-teal',
-  transfer: 'border-white/20 text-white/70',
-  withdraw: 'border-gold/40 text-gold',
-};
 
 function TxLine({ t }: { t: TxRow }) {
   const addr = t.type === 'deposit' ? t.to : t.type === 'withdraw' ? t.from : null;
   const who = t.type === 'transfer' ? `${short(t.from ?? '', 4)} → ${short(t.to ?? '', 4)}` : short(addr ?? '', 6);
   return (
-    <li className="rise flex items-center justify-between gap-4 px-5 py-3 transition hover:bg-white/[0.03]">
+    <li className="flex items-center justify-between gap-4 px-5 py-3 transition hover:bg-surface">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Link to={`/tx/${t.id}`} className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${TYPE_TONE[t.type]}`}>{t.type}</Link>
         {addr ? (
-          <Link to={`/accounts/${addr}`} className="truncate font-mono text-sm text-white/70 hover:text-gold">{who}</Link>
+          <Link to={`/accounts/${addr}`} className="truncate font-mono text-sm text-ink hover:text-lab-purple">{who}</Link>
         ) : (
-          <Link to={`/tx/${t.id}`} className="truncate font-mono text-sm text-white/70">{who}</Link>
+          <Link to={`/tx/${t.id}`} className="truncate font-mono text-sm text-muted">{who}</Link>
         )}
       </div>
       <Link to={`/tx/${t.id}`} className="flex shrink-0 items-center gap-4 text-right">
         <span className="font-mono text-sm tabular-nums">{(Number(t.amount) / 1e7).toFixed(2)}</span>
-        <span className="w-20 font-mono text-xs tabular-nums text-gold">{ms(t.latencyUs)}</span>
-        <span className="w-16 font-mono text-xs text-white/30">{t.batchIndex === null ? 'pending' : `#${t.batchIndex}`}</span>
+        <span className="w-20 font-mono text-xs tabular-nums text-lab-purple">{ms(t.latencyUs)}</span>
+        <span className="w-16 font-mono text-xs text-muted">{t.batchIndex === null ? 'pending' : `#${t.batchIndex}`}</span>
       </Link>
     </li>
   );

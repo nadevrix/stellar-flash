@@ -9,12 +9,12 @@ const EXPERT = `https://stellar.expert/explorer/testnet/contract/${CONTRACT}`;
 const WITHDRAW_TX = 'b7a3e6ce536ac97c79d06ad2dbf99b5d0870c029f41a796ba4080a057b4e9e90';
 
 /** Botón principal: píldora oscura con flecha en círculo dorado (gesto de la web de Stellar). */
-function CtaPill({ href, children, external = false }: { href: string; children: React.ReactNode; external?: boolean }) {
+function CtaPill({ href, children, external = false, className = '' }: { href: string; children: React.ReactNode; external?: boolean; className?: string }) {
   return (
     <a href={href} {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}
-       className="group inline-flex items-center gap-3 rounded-full bg-ink py-2 pl-6 pr-2 font-medium text-white transition hover:bg-ink/90">
+       className={`group inline-flex shrink-0 items-center gap-2 rounded-full bg-ink py-2 pl-4 pr-2 text-sm font-medium text-white transition hover:bg-ink/90 sm:gap-3 sm:pl-5 ${className}`}>
       {children}
-      <span className="grid h-9 w-9 place-items-center rounded-full bg-gold text-ink transition group-hover:rotate-45">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gold text-ink transition group-hover:rotate-45 sm:h-9 sm:w-9">
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M7 17 17 7M9 7h8v8" />
         </svg>
@@ -23,27 +23,45 @@ function CtaPill({ href, children, external = false }: { href: string; children:
   );
 }
 
+const NAV_ANCHORS = [
+  ['#problem', 'The problem'],
+  ['#how', 'How it works'],
+  ['#live', 'Live'],
+  ['#app', 'App'],
+] as const;
+
 function Nav() {
   const { health } = useHealth(8000);
   return (
-    <header className="sticky top-0 z-50 border-b border-ink/8 bg-white/85 backdrop-blur-md">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <a href="#top"><Logo /></a>
-        <div className="hidden items-center gap-8 text-sm text-ink/65 lg:flex">
-          <a href="#problem" className="transition hover:text-ink">The problem</a>
-          <a href="#how" className="transition hover:text-ink">How it works</a>
-          <a href="#live" className="transition hover:text-ink">Live</a>
-          <a href="#app" className="transition hover:text-ink">App</a>
-          <a href="/developers" className="transition hover:text-ink">Developers</a>
-          <a href="/explorer" className="transition hover:text-ink">Explorer</a>
-          <a href="/account" className="transition hover:text-ink">Account</a>
-          <a href="/bridge" className="transition hover:text-ink">Bridge</a>
+    <header className="sticky top-0 z-50 border-b border-ink/8 bg-white/90 backdrop-blur-md">
+      <nav className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-x-4 px-4 py-3 sm:px-6 sm:py-3.5">
+        <a href="#top" className="shrink-0"><Logo /></a>
+
+        <div className="hidden items-center justify-center gap-x-7 text-sm text-ink/65 md:flex">
+          {NAV_ANCHORS.map(([href, label]) => (
+            <a key={href} href={href} className="whitespace-nowrap transition hover:text-ink">{label}</a>
+          ))}
+          <a href="/developers" className="whitespace-nowrap transition hover:text-ink">Developers</a>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:block"><StatusPill health={health} /></div>
+
+        {/* Acciones separadas del nav — nunca pegadas al último link */}
+        <div className="col-start-3 flex items-center gap-3 border-l border-ink/10 pl-4 sm:gap-4 sm:pl-5">
+          <StatusPill health={health} compact />
+          <a href="/bridge"
+             className="hidden whitespace-nowrap rounded-full bg-ink px-4 py-2 text-sm font-medium text-white transition hover:bg-ink/90 lg:inline-flex">
+            Open app
+          </a>
           <CtaPill href={GITHUB} external>GitHub</CtaPill>
         </div>
       </nav>
+
+      <div className="flex gap-2 overflow-x-auto border-t border-ink/6 px-4 py-2 md:hidden">
+        {NAV_ANCHORS.map(([href, label]) => (
+          <a key={href} href={href} className="shrink-0 rounded-full px-3 py-1 text-xs font-medium text-ink/60">{label}</a>
+        ))}
+        <a href="/developers" className="shrink-0 rounded-full px-3 py-1 text-xs font-medium text-ink/60">Developers</a>
+        <a href="/bridge" className="shrink-0 rounded-full bg-lab-purple/10 px-3 py-1 text-xs font-medium text-lab-purple">Open app</a>
+      </div>
     </header>
   );
 }

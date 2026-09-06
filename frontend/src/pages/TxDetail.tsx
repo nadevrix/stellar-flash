@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { AppNav } from '../components/AppNav.tsx';
+import { Alert, BtnPrimary, Card, PageHeader } from '../components/ui/Lab.tsx';
 import { fetchTx, SEQUENCER_URL } from '../lib/api.ts';
 import { EXPERT, ms } from '../lib/format.ts';
 
@@ -17,57 +17,52 @@ export function TxDetail() {
   }, [id]);
 
   return (
-    <div className="min-h-dvh bg-paper font-sans text-ink">
-      <AppNav badge="transaction" />
-      <main className="mx-auto max-w-2xl px-6 py-10">
-        <Link to="/explorer" className="text-sm text-ink/50 hover:text-ink">← Explorer</Link>
-        <h1 className="mt-4 font-display text-3xl font-semibold">Transaction</h1>
-        {error && <p className="mt-4 text-red-700">{error}</p>}
-        {!tx && !error && <p className="mt-4 text-ink/45">Loading…</p>}
-        {tx && (
-          <div className="mt-8 space-y-6">
-            <div className="rounded-2xl border border-ink/12 bg-white p-6 font-mono text-sm break-all">
-              <div className="text-ink/45">id</div>
-              <div>{tx.id}</div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Stat label="Type" value={tx.type} />
-              <Stat label="Seq" value={String(tx.seq)} />
-              <Stat label="L2 finality" value={tx.finality.l2} />
-              <Stat label="L1 finality" value={tx.finality.l1} />
-              <Stat label="Latency" value={ms(tx.latencyUs)} />
-              <Stat label="When" value={new Date(tx.createdAt).toLocaleString()} />
-            </div>
-            {tx.batch && (
-              <div className="rounded-2xl border border-ink/12 bg-white p-6">
-                <div className="text-sm text-ink/50">Batch</div>
-                <Link to={`/batches/${tx.batch.index}`} className="font-mono text-lg underline">#{tx.batch.index}</Link>
-                <span className="ml-3 rounded-full border border-ink/15 px-2 py-0.5 text-xs">{tx.batch.status}</span>
-                {tx.batch.l1TxHash && (
-                  <a href={EXPERT.tx(tx.batch.l1TxHash)} target="_blank" rel="noreferrer"
-                    className="mt-2 block font-mono text-xs text-ink/50 underline">{tx.batch.l1TxHash}</a>
-                )}
-              </div>
-            )}
-            {tx.type === 'withdraw' && (
-              <a href="/bridge" className="inline-block rounded-full bg-ink px-6 py-2.5 text-sm font-medium text-white">
-                Claim in Bridge →
-              </a>
-            )}
-            <a href={`${SEQUENCER_URL}/v1/transactions/${tx.id}`} target="_blank" rel="noreferrer"
-              className="block text-xs text-ink/40 underline">Raw JSON</a>
+    <div className="mx-auto max-w-2xl">
+      <Link to="/explorer" className="text-sm text-muted hover:text-lab-purple">← Transactions</Link>
+      <PageHeader eyebrow="Transaction" title={id ? `${id.slice(0, 16)}…` : 'Transaction'} />
+      {error && <Alert tone="error">{error}</Alert>}
+      {!tx && !error && <p className="text-muted">Loading…</p>}
+      {tx && (
+        <div className="space-y-4">
+          <Card className="p-5 font-mono text-sm break-all">
+            <div className="text-muted">id</div>
+            <div className="mt-1">{tx.id}</div>
+          </Card>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Stat label="Type" value={tx.type} />
+            <Stat label="Seq" value={String(tx.seq)} />
+            <Stat label="L2 finality" value={tx.finality.l2} />
+            <Stat label="L1 finality" value={tx.finality.l1} />
+            <Stat label="Latency" value={ms(tx.latencyUs)} />
+            <Stat label="When" value={new Date(tx.createdAt).toLocaleString()} />
           </div>
-        )}
-      </main>
+          {tx.batch && (
+            <Card className="p-5">
+              <div className="text-sm text-muted">Batch</div>
+              <Link to={`/batches/${tx.batch.index}`} className="font-mono text-lg text-lab-purple underline">#{tx.batch.index}</Link>
+              <span className="ml-3 rounded-full border border-border px-2 py-0.5 text-xs">{tx.batch.status}</span>
+              {tx.batch.l1TxHash && (
+                <a href={EXPERT.tx(tx.batch.l1TxHash)} target="_blank" rel="noreferrer"
+                  className="mt-2 block font-mono text-xs text-muted underline">{tx.batch.l1TxHash}</a>
+              )}
+            </Card>
+          )}
+          {tx.type === 'withdraw' && (
+            <Link to="/bridge"><BtnPrimary>Claim in Bridge</BtnPrimary></Link>
+          )}
+          <a href={`${SEQUENCER_URL}/v1/transactions/${tx.id}`} target="_blank" rel="noreferrer"
+            className="block text-xs text-muted underline">Raw JSON</a>
+        </div>
+      )}
     </div>
   );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-ink/10 bg-white px-4 py-3">
-      <div className="text-xs text-ink/45">{label}</div>
+    <Card className="px-4 py-3">
+      <div className="text-xs text-muted">{label}</div>
       <div className="mt-1 font-medium capitalize">{value}</div>
-    </div>
+    </Card>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AppNav } from '../components/AppNav.tsx';
+import { PageHeader } from '../components/ui/Lab.tsx';
 import { useHealth } from '../components/LiveStatus.tsx';
 import { SEQUENCER_URL } from '../lib/api.ts';
 
@@ -24,9 +24,9 @@ function Code({ children, lang = 'ts' }: { children: string; lang?: string }) {
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-24 border-t border-ink/10 pt-12">
-      <h2 className="font-display text-3xl font-semibold tracking-tight">{title}</h2>
-      <div className="mt-6 space-y-5 text-[17px] leading-relaxed text-ink/70">{children}</div>
+    <section id={id} className="scroll-mt-24 border-t border-border pt-12">
+      <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+      <div className="mt-6 space-y-5 text-base leading-relaxed text-muted">{children}</div>
     </section>
   );
 }
@@ -52,31 +52,24 @@ export function Developers() {
   useEffect(() => { setOk(health !== null); }, [health]);
 
   return (
-    <div className="min-h-dvh bg-white font-sans text-ink">
-      <AppNav badge="developers" />
+    <div className="mx-auto max-w-4xl">
+      <PageHeader
+        eyebrow="API explorer"
+        title="Integrate Flash in an afternoon"
+        description="Flash speaks the language you already use: Stellar keypairs, asset contract ids, stroops. An account on Flash is a Stellar account."
+      />
 
-      <main className="mx-auto max-w-5xl px-6 py-12">
-        <p className="font-mono text-sm uppercase tracking-widest text-warm">Developers</p>
-        <h1 className="mt-4 font-display text-5xl font-semibold leading-[1.1] tracking-tight">
-          Integrate Flash in an afternoon
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink/65">
-          Flash speaks the language you already use: Stellar keypairs, asset contract ids, stroops.
-          There are no new keys, no new addresses and no new asset to explain to your users — an
-          account on Flash <em>is</em> a Stellar account.
-        </p>
-
-        <div className="mt-10 flex flex-wrap items-center gap-3">
-          <span className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm ${ok ? 'border-teal/40 text-teal' : 'border-ink/15 text-ink/45'}`}>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className={`inline-flex items-center gap-2 rounded-lg border px-3.5 py-1.5 text-sm ${ok ? 'border-teal/40 text-teal' : 'border-border text-muted'}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-teal pulse-dot' : 'bg-warm'}`} />
             {ok ? 'Testnet sequencer is up' : 'checking the sequencer…'}
           </span>
-          <a href={`${SEQUENCER_URL}/v1/health`} target="_blank" rel="noreferrer" className="font-mono text-sm text-ink/50 underline decoration-ink/20 underline-offset-4 hover:text-ink">
+          <a href={`${SEQUENCER_URL}/v1/health`} target="_blank" rel="noreferrer" className="font-mono text-sm text-muted underline hover:text-ink">
             {SEQUENCER_URL.replace('https://', '')}
           </a>
         </div>
 
-        <div className="mt-16 space-y-14">
+        <div className="mt-12 space-y-14">
           <Section id="product" title="Product map">
             <ul className="list-inside list-disc space-y-2 text-ink/70">
               <li><a href="/bridge" className="underline">Bridge</a> — on-ramp / off-ramp for wallets (deposit, pay, withdraw)</li>
@@ -220,9 +213,9 @@ curl -s ${SEQUENCER_URL}/v1/batches/0?data=1 | jq`}</Code>
           </Section>
         </div>
 
-        <div className="mt-16 rounded-2xl border border-ink/12 bg-paper p-8">
-          <h3 className="font-display text-xl font-semibold">Testnet, and honest about it</h3>
-          <p className="mt-3 leading-relaxed text-ink/65">
+        <div className="mt-12 rounded-xl border border-border bg-surface p-8">
+          <h3 className="text-xl font-semibold">Testnet, and honest about it</h3>
+          <p className="mt-3 leading-relaxed text-muted">
             Flash runs on Stellar testnet today; testnet assets have no value. Fraud proofs are
             specified but not implemented, so for now the challenge period is an emergency-stop
             window rather than a cryptographic guarantee. The roadmap and the reasoning are in the
@@ -233,7 +226,6 @@ curl -s ${SEQUENCER_URL}/v1/batches/0?data=1 | jq`}</Code>
             Read the source
           </a>
         </div>
-      </main>
     </div>
   );
 }

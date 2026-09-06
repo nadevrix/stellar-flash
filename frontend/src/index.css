@@ -7,8 +7,12 @@
   --color-gold: #FDDA24;      /* Generous Gold */
   --color-ink: #0F0F0F;
   --color-paper: #F6F7F8;
-  --color-sand: #E8E3D5;      /* neutro cálido, el tercer color de su web */
+  --color-sand: #E8E3D5;
   --color-lilac: #B9A8FF;
+  --color-lab-purple: #7C5CFC;
+  --color-border: #E8EAED;
+  --color-surface: #F8F9FB;
+  --color-muted: #6B7280;
   --color-teal: #1BA697;
   --color-warm: #77746E;
   --font-display: "Lora", ui-serif, Georgia, serif;

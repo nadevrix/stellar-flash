@@ -6,6 +6,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import './index.css';
+import { AppShell } from './components/AppShell.tsx';
+import { WalletProvider } from './context/WalletContext.tsx';
 import { Landing } from './pages/Landing.tsx';
 import { Explorer } from './pages/Explorer.tsx';
 import { Developers } from './pages/Developers.tsx';
@@ -18,17 +20,21 @@ import { BatchDetail } from './pages/BatchDetail.tsx';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/bridge" element={<Bridge />} />
-        <Route path="/account" element={<Account />} />
-        <Route path="/accounts/:address" element={<AccountPublic />} />
-        <Route path="/explorer" element={<Explorer />} />
-        <Route path="/tx/:id" element={<TxDetail />} />
-        <Route path="/batches/:index" element={<BatchDetail />} />
-        <Route path="/developers" element={<Developers />} />
-        <Route path="*" element={<Landing />} />
-      </Routes>
+      <WalletProvider>
+        <AppShell>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/bridge" element={<Bridge />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/accounts/:address" element={<AccountPublic />} />
+            <Route path="/explorer" element={<Explorer />} />
+            <Route path="/tx/:id" element={<TxDetail />} />
+            <Route path="/batches/:index" element={<BatchDetail />} />
+            <Route path="/developers" element={<Developers />} />
+            <Route path="*" element={<Landing />} />
+          </Routes>
+        </AppShell>
+      </WalletProvider>
     </BrowserRouter>
   </StrictMode>,
 );
