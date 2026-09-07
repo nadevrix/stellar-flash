@@ -55,7 +55,8 @@ const num = (k: string, d: number): number => {
 };
 
 export function loadConfig(overrides: Partial<SequencerConfig> = {}): SequencerConfig {
-  const l1Mode = (env('L1_MODE', 'mock') as L1Mode) ?? 'mock';
+  const onPaaS = process.env.PORT !== undefined && process.env.PORT !== '';
+  const l1Mode = (env('L1_MODE') ?? (env('SEQUENCER_SECRET') ? 'rpc' : 'mock')) as L1Mode;
   const cfg: SequencerConfig = {
     l1Mode,
     networkPassphrase: env('NETWORK_PASSPHRASE', Networks.TESTNET)!,
@@ -64,10 +65,10 @@ export function loadConfig(overrides: Partial<SequencerConfig> = {}): SequencerC
     bridgeContractId: env('BRIDGE_CONTRACT_ID', 'CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA')!,
     sequencerSecret: env('SEQUENCER_SECRET'),
     allowedTokens: (env('ALLOWED_TOKENS', '') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
-    dbPath: env('DB_PATH', 'data/flash.db')!,
-    // PaaS (Render, Fly, Railway) inyectan el puerto en PORT y exigen escuchar en 0.0.0.0.
+    dbPath: env('DB_PATH', onPaaS ? '/var/data/flash.db' : 'data/flash.db')!,
+    // Render/Fly/Railway inyectan PORT y exigen escuchar en 0.0.0.0 (no 127.0.0.1).
     apiPort: num('API_PORT', num('PORT', 8787)),
-    apiHost: env('API_HOST', '127.0.0.1')!,
+    apiHost: env('API_HOST') ?? (onPaaS ? '0.0.0.0' : '127.0.0.1'),
     sealIntervalMs: num('SEAL_INTERVAL_MS', 2_000),
     maxBatchBytes: num('MAX_BATCH_BYTES', 60_000),
     maxBatchTxs: num('MAX_BATCH_TXS', 250),
