@@ -35,7 +35,7 @@ function Nav() {
   return (
     <header className="sticky top-0 z-50 border-b border-ink/8 bg-white/90 backdrop-blur-md">
       <nav className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-x-4 px-4 py-3 sm:px-6 sm:py-3.5">
-        <a href="#top" className="shrink-0"><Logo /></a>
+        <a href="#top" className="shrink-0"><Logo large /></a>
 
         <div className="hidden items-center justify-center gap-x-7 text-sm text-ink/65 md:flex">
           {NAV_ANCHORS.map(([href, label]) => (

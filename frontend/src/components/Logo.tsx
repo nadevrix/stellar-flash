@@ -28,14 +28,16 @@ export function Bolt({ className = 'h-4 w-4' }: { className?: string }) {
 }
 
 /**
- * `onDark`: sobre fondo oscuro la marca va en oro; sobre fondo claro el oro no
- * contrasta lo suficiente para un elemento tan pequeño, así que va en tinta.
+ * `onDark`: texto en blanco sobre fondos oscuros; el rayo siempre va en oro.
+ * `large`: tamaño de nav tipo stellar.org (más prominente en el header).
  */
-export function Logo({ className = '', onDark = false }: { className?: string; onDark?: boolean }) {
+export function Logo({ className = '', onDark = false, large = false }: { className?: string; onDark?: boolean; large?: boolean }) {
+  const mark = large ? 'h-10 w-10' : 'h-9 w-9';
+  const word = large ? 'text-[1.35rem]' : 'text-lg';
   return (
-    <span className={`inline-flex items-center gap-2.5 ${onDark ? 'text-white' : 'text-ink'} ${className}`}>
-      <Mark className={`h-7 w-7 ${onDark ? 'text-gold' : 'text-ink'}`} />
-      <span className="font-display text-[1.05rem] font-semibold tracking-tight">Stellar Flash</span>
+    <span className={`inline-flex items-center gap-3 ${onDark ? 'text-white' : 'text-ink'} ${className}`}>
+      <Mark className={`${mark} shrink-0 text-gold`} />
+      <span className={`font-display ${word} font-semibold tracking-tight leading-none`}>Stellar Flash</span>
     </span>
   );
 }
