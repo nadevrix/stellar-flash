@@ -1,33 +1,62 @@
 # ⚡ Stellar Flash
 
-**Rollup de pagos sobre Stellar: confirmación en milisegundos, liquidación en Stellar cuando Stellar está sana.**
+**Payment rollup on Stellar — confirmation in milliseconds, settlement on Stellar when the network is healthy.**
 
-Mismas llaves (`G…`), mismos tokens (XLM, USDC vía SAC), misma seguridad (los fondos viven en un contrato Soroban con salidas por prueba Merkle). Otra latencia: ~2 ms en lugar de 5–30 s. Pensado para apps de pagos, plataformas que pagan a muchos (bounties, nóminas), juegos y agentes de IA. Es a Stellar lo que Arbitrum es a Ethereum.
+Same keys (`G…`), same assets (XLM / USDC via SAC), same security model (funds in a Soroban vault, exits via Merkle proofs). What changes is latency: ~2–6 ms instead of 5–30 seconds. Built for payment apps, bounty platforms, payroll, games, and AI agents.
 
 ```
-Usuarios/Apps ──firma SEP-53──▶ Secuenciador Flash (confirma en ~2 ms, sella lotes)
-                                    │ commit_batch (datos del lote en L1)      ▲ getEvents(deposit)
-                                    ▼                                          │
-                          Stellar L1 · contrato flash-bridge (bóveda, raíces, withdraw/escape)
+Users / Apps ──SEP-53──▶ Flash Sequencer (~2 ms confirm, batch seal)
+                              │ commit_batch (batch data on L1)
+                              ▼
+                    Stellar L1 · flash-bridge contract (vault, roots, withdraw / escape)
 ```
 
-## Estado
-- ✅ Contrato Soroban `flash-bridge` (P27, `soroban-sdk` 27.0.6): deposit · commit_batch · withdraw (Merkle) · escape · reclaim_deposit · pause. 11 tests. WASM 18.7 KB.
-- ✅ Protocolo compartido Rust ↔ TS (vectores idénticos), firma compatible con SEP-53 (wallets).
-- ✅ Secuenciador: API HTTP, log SQLite con recuperación, lotes con límites, monitor de salud L1 (HEALTHY/DEGRADED/DOWN), política de fees/backoff, submitter RPC con failover, watcher de depósitos. 13 tests.
-- ✅ SDK drop-in + demo end-to-end (`npm run demo`).
-- ✅ **Probado en Stellar testnet**: contrato desplegado, depósito acreditado desde eventos de L1, `commit_batch` real, retiro completo con prueba Merkle y recuperación tras caída del RPC (`node scripts/testnet-e2e.ts`).
-- ⏳ Frontend (especificado en `docs/08`), pruebas de fraude y ZK (especificadas en `docs/05`).
+## Live testnet
 
-## Arranque
+| | |
+|---|---|
+| **App** | https://stellar-flash.onrender.com |
+| **Bridge** | [/bridge](https://stellar-flash.onrender.com/bridge) |
+| **API** | https://stellar-flash-sequencer.onrender.com/v1/health |
+| **Contract** | `CBRJ3ILZPY4AUNC5I6SC5FTRA2CJIZJPY5337FO2QO5BQ7HSB2Z7IBB4` (testnet) |
+
+## Status (Sep 2026)
+
+- ✅ Soroban `flash-bridge` contract (deposit, batches, Merkle withdraw, escape hatch) — 11 Rust tests
+- ✅ Shared protocol (Rust ↔ TS), SEP-53 wallet-compatible signing
+- ✅ Sequencer: HTTP API, SQLite persistence, L1 health monitor, settlement policy, RPC failover — 14 TS tests
+- ✅ SDK (`FlashClient`) + testnet E2E script
+- ✅ **Web app:** landing, Bridge dapp, Account dashboard, live Explorer, developer docs (Stellar Lab–style UI)
+- ✅ **Testnet production** on Render (sequencer + static frontend)
+- ⏳ Fraud proofs, ZK, API keys, Postgres, npm publish (Phase 2+)
+
+## Quick start
+
 ```bash
 npm install && npm test && npm run demo
-npm start        # secuenciador en modo mock: curl localhost:8787/v1/health
+npm start                    # mock L1 → http://127.0.0.1:8787/v1/health
+cd frontend && npm run dev   # web UI
 ```
-Requisitos: Node ≥ 22.18 (probado con 26), Rust + `rustup target add wasm32v1-none` para el contrato, `stellar-cli` para desplegar.
 
-## Documentación
-Empieza en [`docs/00-EMPIEZA-AQUI.md`](docs/00-EMPIEZA-AQUI.md). Para contribuir: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Requirements: Node ≥ 22.18, Rust + `wasm32v1-none` for the contract.
 
-## Licencia
-[Apache-2.0](contracts/LICENSE) para el contrato Soroban, [MIT](LICENSE) para el resto.
+## Documentation
+
+Start at **[docs/README.md](docs/README.md)** (English, presentation-ready).
+
+Technical deep dives (Spanish): architecture, contracts, sequencer API, SDK — in `docs/01`–`10`.
+
+## Integrate in three lines
+
+```typescript
+const receipt = await flash.transfer({
+  to: recipientGAddress,
+  token: xlmSacContractId,
+  amount: 25_000_000n, // stroops
+});
+// receipt.latencyUs · receipt.finality.l2 === 'instant'
+```
+
+## License
+
+[Apache-2.0](contracts/LICENSE) (Soroban contract) · [MIT](LICENSE) (everything else)

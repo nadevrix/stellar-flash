@@ -1,32 +1,27 @@
 # 10 · Roadmap, demo para Stellar Elite y camino a financiación
 
-## 1. Estado actual (4-sep-2026)
+## 1. Estado actual (7-sep-2026)
 
 Hecho y probado:
-- Contrato `flash-bridge` (Soroban, P27): depósitos, lotes con DA en L1, retiros con prueba Merkle, escape hatch, devolución de depósitos, pausa, admin. 11 tests. WASM 18.7 KB.
-- Protocolo compartido Rust ↔ TS con vectores idénticos; firma SEP-53 compatible con wallets.
-- Secuenciador: finalidad L2 en ~2 ms, lotes con límites, log SQLite con recuperación, motor de settlement con salud L1 (HEALTHY/DEGRADED/DOWN), política de fees, backoff, reconciliación; API HTTP; SDK; demo end-to-end. 13 tests TS.
+- Contrato, protocolo, secuenciador, SDK (como antes).
+- **Testnet E2E en producción** (Render): depósito, pagos, lotes, retiro Merkle.
+- **Frontend completo** desplegado: Bridge, Account, Explorer, Developers (`08-frontend.md` actualizado).
+- **14 tests TS** + fix anti mint infinito en depósitos.
+- **UI** estilo Stellar Lab; documentación pública en inglés (`docs/README.md`, `11-product-and-deployment.md`).
 
-No hecho:
-- Prueba en **testnet real** (script listo: `scripts/deploy-testnet.sh`).
-- Frontend (especificado en `08-frontend.md`).
-- Pruebas de fraude, ZK, inclusión forzada, multi-secuenciador (especificados en `05-contratos-soroban.md`).
-- Auth/API keys/rate limiting; Postgres; SSE.
+No hecho (Fase 2+):
+- API keys, webhooks, Postgres, SSE.
+- Pruebas de fraude, ZK, npm publish SDK.
+- Replay batch verificable en browser.
 
-## 2. Fases
+### Fase 0 · Testnet end-to-end — **completada**
+Ver BITACORA sesiones 10–12 y `11-product-and-deployment.md`.
 
-### Fase 0 · Testnet end-to-end (1–2 días) — **siguiente paso**
-1. `bash scripts/deploy-testnet.sh` → contrato en testnet + depósito de prueba.
-2. Arrancar el secuenciador en `L1_MODE=rpc`; comprobar que acredita el depósito (getEvents) y publica el primer lote (`commit_batch` real). Ajustar parseo de eventos/errores si el SDK v17 difiere.
-3. Medir coste real de `commit_batch` con 60–120 KB → fijar `MAX_BATCH_BYTES`.
-4. Retiro completo: `withdraw` en L2 → esperar 20 ledgers → `buildWithdrawClaimTx` → XLM de vuelta en la cuenta. Guardar hashes para el pitch.
-5. Simular "L1 caída" real: apuntar `RPC_URLS` a un endpoint inexistente durante 1 minuto y ver HOLD → recuperación.
-
-### Fase 1 · MVP demostrable y vendible (1–2 semanas)
-- Frontend Explorer + Bridge (según `08-frontend.md`), desplegado (Vercel/Netlify) apuntando a un secuenciador en testnet (Fly.io/Railway/VPS). Página pública de estado de Stellar (nuestro monitor).
-- Integración de referencia: una "plataforma de bounties" mínima que paga 100 destinatarios en **FXLM** en < 1 s. Es el caso de uso de arranque: una plataforma deposita su float una vez y a partir de ahí paga dentro de Flash, de forma que sus destinatarios reciben sin tocar la L1.
-- Optimización: `sodium-native`, micro-lotes de escritura → objetivo 2 000+ tx/s.
-- Docs públicas + README en inglés.
+### Fase 1 · MVP demostrable — **en curso / casi lista**
+- ✅ Frontend Explorer + Bridge desplegados (Render).
+- ✅ Landing + producto usable.
+- ⏳ Integración referencia bounty (script `examples/bounty-pay.ts` existe; falta demo grabada).
+- ⏳ Docs README inglés — **hecho sep 2026**.
 
 ### Fase 2 · Seguridad económica e ingresos (3–6 semanas)
 - Planes y cobro (Stripe); API keys; webhooks de txs L2.

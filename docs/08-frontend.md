@@ -1,12 +1,16 @@
-# 08 · Frontend: cómo construirlo (no implementado a propósito)
+# 08 · Frontend
 
-El backend expone todo lo necesario por HTTP JSON con CORS abierto. Este documento define qué construir, con qué y cómo, para que el frontend se haga en una sesión sin decisiones pendientes.
+> **Estado (sep 2026): IMPLEMENTADO** en `frontend/`. UI estilo Stellar Lab (sidebar, wallet global, tema claro).  
+> Guía pública en inglés: [`11-product-and-deployment.md`](11-product-and-deployment.md) · [`00-START-HERE.md`](00-START-HERE.md).
+
+El backend expone todo lo necesario por HTTP JSON con CORS abierto. Este documento define qué construir, con qué y cómo — la mayoría ya está hecha; lo que falta está marcado abajo.
 
 ## 1. Productos de frontend (en orden de prioridad)
 
-1. **Flash Explorer + panel de salud** (la pieza de demo/pitch): muestra en vivo la L2 confirmando y la L1 liquidando; hace visible la tesis "Stellar se cae → Flash sigue".
-2. **Flash Bridge (dapp de usuario)**: depositar XLM/USDC desde la wallet, ver saldo Flash, pagar, retirar y reclamar.
-3. **Consola de desarrollador**: API keys, métricas por app, docs interactivas (fase posterior; requiere auth en el backend).
+1. **Flash Explorer + panel de salud** — ✅ `/explorer`, `/tx/:id`, `/batches/:index`, `/accounts/:G`
+2. **Flash Bridge (dapp de usuario)** — ✅ `/bridge` (deposit, pay, withdraw, claim)
+3. **Account dashboard** — ✅ `/account` + wallet global en header
+4. **Consola de desarrollador** — ✅ `/developers` (docs + API); ⏳ API keys / métricas por app (fase 2)
 
 ## 2. Stack recomendado
 
@@ -51,12 +55,13 @@ Detalle, lote, `finality`, y para retiros: prueba Merkle (`/v1/withdrawals/:id/p
 - Errores 422 del API con mensajes claros: `BAD_NONCE` → "recarga el nonce" (retry automático una vez), `INSUFFICIENT_BALANCE`, `INVALID_SIGNATURE` → "la wallet firmó otro mensaje".
 - Enlaces a stellar.expert para `l1TxHash` y para el contrato puente.
 
-## 6. Cambios sugeridos en el backend para el frontend (no hechos)
-- `GET /v1/stream` (SSE) con eventos `tx`, `batch`, `health` para evitar polling.
-- `GET /v1/tokens` con metadatos (símbolo, decimales) resolviendo cada SAC vía `name()/symbol()/decimals()` por simulación.
-- `GET /v1/stats` (txs/s, latencia p50/p99 últimos 60 s, lotes/hora, fee media L1).
-- `POST /v1/admin/mock-l1` (solo mock) para la demo interactiva.
-- Rate limiting por IP y API key por app.
+## 6. Cambios sugeridos en el backend para el frontend
+
+- ✅ `GET /v1/tokens` — metadatos básicos (símbolo XLM testnet/mainnet)
+- ✅ `GET /v1/stats` — txs/s, latencia, lotes
+- ⏳ `GET /v1/stream` (SSE) con eventos `tx`, `batch`, `health`
+- ⏳ `POST /v1/admin/mock-l1` (solo mock) para demo interactiva
+- ⏳ Rate limiting por IP y API key por app
 
 ## 7. Estructura de carpetas propuesta
 ```

@@ -1,5 +1,7 @@
 # Stellar Flash · Documentación — empieza aquí
 
+> **Documentación pública en inglés (GitHub / demos):** [`README.md`](README.md) · [`00-START-HERE.md`](00-START-HERE.md) · [`11-product-and-deployment.md`](11-product-and-deployment.md)
+
 **Stellar Flash** es un rollup de pagos (L2) sobre Stellar: confirmación en milisegundos con las mismas llaves y tokens de Stellar, y liquidación en L1 por lotes cuando la red está sana. Producto único: **FXLM / FUSDC** (XLM/USDC puenteados 1:1).
 
 ## Orden de lectura
