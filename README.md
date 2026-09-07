@@ -1,4 +1,4 @@
-# ⚡ Stellar Flash
+# Stellar Flash
 
 **Payment rollup on Stellar — confirmation in milliseconds, settlement on Stellar when the network is healthy.**
 
@@ -22,13 +22,16 @@ Users / Apps ──SEP-53──▶ Flash Sequencer (~2 ms confirm, batch seal)
 
 ## Status (Sep 2026)
 
-- ✅ Soroban `flash-bridge` contract (deposit, batches, Merkle withdraw, escape hatch) — 11 Rust tests
-- ✅ Shared protocol (Rust ↔ TS), SEP-53 wallet-compatible signing
-- ✅ Sequencer: HTTP API, SQLite persistence, L1 health monitor, settlement policy, RPC failover — 14 TS tests
-- ✅ SDK (`FlashClient`) + testnet E2E script
-- ✅ **Web app:** landing, Bridge dapp, Account dashboard, live Explorer, developer docs (Stellar Lab–style UI)
-- ✅ **Testnet production** on Render (sequencer + static frontend)
-- ⏳ Fraud proofs, ZK, API keys, Postgres, npm publish (Phase 2+)
+**Done**
+- Soroban `flash-bridge` contract (deposit, batches, Merkle withdraw, escape hatch) — 11 Rust tests
+- Shared protocol (Rust ↔ TS), SEP-53 wallet-compatible signing
+- Sequencer: HTTP API, SQLite persistence, L1 health monitor, settlement policy, RPC failover — 14 TS tests
+- SDK (`FlashClient`) + testnet E2E script
+- Web app: landing, Bridge dapp, Account dashboard, live Explorer, developer docs (Stellar Lab–style UI)
+- Testnet production on Render (sequencer + static frontend)
+
+**Planned (Phase 2+)**
+- Fraud proofs, ZK, API keys, Postgres, npm publish
 
 ## Quick start
 

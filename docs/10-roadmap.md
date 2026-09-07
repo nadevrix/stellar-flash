@@ -18,10 +18,10 @@ No hecho (Fase 2+):
 Ver BITACORA sesiones 10–12 y `11-product-and-deployment.md`.
 
 ### Fase 1 · MVP demostrable — **en curso / casi lista**
-- ✅ Frontend Explorer + Bridge desplegados (Render).
-- ✅ Landing + producto usable.
-- ⏳ Integración referencia bounty (script `examples/bounty-pay.ts` existe; falta demo grabada).
-- ⏳ Docs README inglés — **hecho sep 2026**.
+- Done: Frontend Explorer + Bridge desplegados (Render).
+- Done: Landing + producto usable.
+- Planned: Integración referencia bounty (script `examples/bounty-pay.ts` existe; falta demo grabada).
+- Done: Docs README inglés (sep 2026).
 
 ### Fase 2 · Seguridad económica e ingresos (3–6 semanas)
 - Planes y cobro (Stripe); API keys; webhooks de txs L2.

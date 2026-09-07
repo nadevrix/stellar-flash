@@ -7,10 +7,10 @@ El backend expone todo lo necesario por HTTP JSON con CORS abierto. Este documen
 
 ## 1. Productos de frontend (en orden de prioridad)
 
-1. **Flash Explorer + panel de salud** — ✅ `/explorer`, `/tx/:id`, `/batches/:index`, `/accounts/:G`
-2. **Flash Bridge (dapp de usuario)** — ✅ `/bridge` (deposit, pay, withdraw, claim)
-3. **Account dashboard** — ✅ `/account` + wallet global en header
-4. **Consola de desarrollador** — ✅ `/developers` (docs + API); ⏳ API keys / métricas por app (fase 2)
+1. **Flash Explorer + panel de salud** — done: `/explorer`, `/tx/:id`, `/batches/:index`, `/accounts/:G`
+2. **Flash Bridge (dapp de usuario)** — done: `/bridge` (deposit, pay, withdraw, claim)
+3. **Account dashboard** — done: `/account` + wallet global en header
+4. **Consola de desarrollador** — done: `/developers` (docs + API); planned: API keys / métricas por app (fase 2)
 
 ## 2. Stack recomendado
 
@@ -24,7 +24,7 @@ El backend expone todo lo necesario por HTTP JSON con CORS abierto. Este documen
 ## 3. Pantallas del Explorer
 
 ### 3.1 Home / "Live"
-- **Semáforo L1**: HEALTHY/DEGRADED/DOWN con `reason`, `latestLedger`, `ledgerAgeSec`, `feeP90`, endpoints con ✔/✖ y latencia. Fuente: `GET /v1/health` → `l1`.
+- **Semáforo L1**: HEALTHY/DEGRADED/DOWN con `reason`, `latestLedger`, `ledgerAgeSec`, `feeP90`, endpoints con ok/fail y latencia. Fuente: `GET /v1/health` → `l1`.
 - **Decisión de settlement actual**: `settlement.action` + `reason` (COMMIT/DEFER/HOLD) con explicación humana.
 - **Contadores L2**: txs totales (`l2.seq`), pendientes, cuentas, próximo lote, raíz de estado (truncada, copiable).
 - **Timeline** de lotes: tarjetas con índice, txCount, bytes, estado (`sealed` → `committed` → `finalized`), hash L1 (link a stellar.expert), tiempo desde sellado.
@@ -32,7 +32,7 @@ El backend expone todo lo necesario por HTTP JSON con CORS abierto. Este documen
 - Botón "modo demo" (solo con `L1_MODE=mock`): permite cambiar el modo de la L1 simulada. **Requiere** añadir al backend un endpoint admin `POST /v1/admin/mock-l1 { mode }` protegido por token (no existe aún; 10 líneas en `api/server.ts`).
 
 ### 3.2 Lote `/batches/:index`
-`GET /v1/batches/:i?data=1`: cabecera (raíces, cursor de depósitos, hash de datos, tx L1), lista de txs del lote (decodificar `txData` base64 con `decodeBatchData` del protocolo en el navegador), retiros con `wIndex`. Botón **"Verificar lote"**: reconstruye el estado con `replayBatch` de todos los lotes hasta este y compara raíces → "✔ verificado por tu navegador". Es el argumento de confianza más fuerte que se puede mostrar.
+`GET /v1/batches/:i?data=1`: cabecera (raíces, cursor de depósitos, hash de datos, tx L1), lista de txs del lote (decodificar `txData` base64 con `decodeBatchData` del protocolo en el navegador), retiros con `wIndex`. Botón **"Verificar lote"**: reconstruye el estado con `replayBatch` de todos los lotes hasta este y compara raíces → "verified in your browser". Es el argumento de confianza más fuerte que se puede mostrar.
 
 ### 3.3 Cuenta `/accounts/:G`
 Saldos por token (mostrar símbolo resolviendo el SAC: XLM nativo, USDC…), nonce, historial (`transactions`), estado L1 de cada tx (`finality.l1`).
@@ -57,11 +57,11 @@ Detalle, lote, `finality`, y para retiros: prueba Merkle (`/v1/withdrawals/:id/p
 
 ## 6. Cambios sugeridos en el backend para el frontend
 
-- ✅ `GET /v1/tokens` — metadatos básicos (símbolo XLM testnet/mainnet)
-- ✅ `GET /v1/stats` — txs/s, latencia, lotes
-- ⏳ `GET /v1/stream` (SSE) con eventos `tx`, `batch`, `health`
-- ⏳ `POST /v1/admin/mock-l1` (solo mock) para demo interactiva
-- ⏳ Rate limiting por IP y API key por app
+- Done: `GET /v1/tokens` — metadatos básicos (símbolo XLM testnet/mainnet)
+- Done: `GET /v1/stats` — txs/s, latencia, lotes
+- Planned: `GET /v1/stream` (SSE) con eventos `tx`, `batch`, `health`
+- Planned: `POST /v1/admin/mock-l1` (solo mock) para demo interactiva
+- Planned: Rate limiting por IP y API key por app
 
 ## 7. Estructura de carpetas propuesta
 ```
