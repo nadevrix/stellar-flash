@@ -4,7 +4,7 @@
  * Modelo: **event sourcing**. La tabla `transactions` es el log ordenado (columna `seq`) y es la
  * fuente de verdad; el estado en memoria se reconstruye re-ejecutando el log (o desde el último
  * `snapshot`). Para producción el mismo esquema se traslada a PostgreSQL: ver
- * `docs/09-base-de-datos.md`.
+ * Persistence schema — see docs/06-sequencer-api.md §4.
  */
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';

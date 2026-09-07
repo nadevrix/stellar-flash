@@ -1,73 +1,69 @@
-# 10 · Roadmap, demo para Stellar Elite y camino a financiación
+# 10 · Roadmap and funding path
 
-## 1. Estado actual (7-sep-2026)
+## 1. Current status (Sep 2026)
 
-Hecho y probado:
-- Contrato, protocolo, secuenciador, SDK (como antes).
-- **Testnet E2E en producción** (Render): depósito, pagos, lotes, retiro Merkle.
-- **Frontend completo** desplegado: Bridge, Account, Explorer, Developers (`08-frontend.md` actualizado).
-- **14 tests TS** + fix anti mint infinito en depósitos.
-- **UI** estilo Stellar Lab; documentación pública en inglés (`docs/README.md`, `11-product-and-deployment.md`).
+**Shipped and tested:**
+- Contract, protocol, sequencer, SDK
+- **Testnet E2E in production** (Render): deposit, payments, batches, Merkle withdrawal
+- **Full web app**: Bridge, Account, Explorer, Developers ([08-frontend.md](08-frontend.md))
+- **14 TS tests** + deposit solvency / anti-infinite-mint fix
+- Stellar Lab–style UI; public English documentation
 
-No hecho (Fase 2+):
-- API keys, webhooks, Postgres, SSE.
-- Pruebas de fraude, ZK, npm publish SDK.
-- Replay batch verificable en browser.
+**Not yet (Phase 2+):**
+- API keys, webhooks, Postgres, SSE
+- Fraud proofs, ZK, npm SDK publish
+- In-browser batch replay verification
 
-### Fase 0 · Testnet end-to-end — **completada**
-Ver BITACORA sesiones 10–12 y `11-product-and-deployment.md`.
+### Phase 0 · Testnet end-to-end — **complete**
+See [11-product-and-deployment.md](11-product-and-deployment.md).
 
-### Fase 1 · MVP demostrable — **en curso / casi lista**
-- Done: Frontend Explorer + Bridge desplegados (Render).
-- Done: Landing + producto usable.
-- Planned: Integración referencia bounty (script `examples/bounty-pay.ts` existe; falta demo grabada).
-- Done: Docs README inglés (sep 2026).
+### Phase 1 · Demonstrable MVP — **in progress / nearly done**
+- Done: Explorer + Bridge deployed on Render
+- Done: Landing + usable product
+- Planned: Reference bounty integration demo (script `examples/bounty-pay.ts` exists; recorded demo pending)
+- Done: English public documentation (Sep 2026)
 
-### Fase 2 · Seguridad económica e ingresos (3–6 semanas)
-- Planes y cobro (Stripe); API keys; webhooks de txs L2.
-- Pruebas de fraude (`challenge_batch`) + bond del secuenciador + raíces intermedias en `commit_batch`.
-- Watchtower open-source (CLI que sigue el contrato, re-ejecuta lotes y alerta/desafía).
-- Auditoría del contrato (pedir apoyo en SCF/SDF: hay programas de auditoría subvencionada).
-- Postgres + réplica pasiva; API keys; métricas.
-- **Mainnet limitado** (límite de depósito por cuenta, tokens XLM/USDC).
+### Phase 2 · Economic security and revenue (3–6 weeks)
+- Plans and billing (Stripe); API keys; L2 tx webhooks
+- Fraud proofs (`challenge_batch`) + sequencer bond + intermediate roots in `commit_batch`
+- Open-source watchtower CLI (follows contract, replays batches, alerts/challenges)
+- Contract audit (SCF/SDF subsidized audit programs)
+- Postgres + passive replica; developer metrics
+- **Limited mainnet** (deposit caps per account, XLM/USDC)
 
-### Fase 2.5 · Escala del estado y firma legible
-Dos cambios que tocan contrato + protocolo + vectores a la vez, así que van juntos:
-- **Árbol Merkle incremental.** Hoy `root()` reconstruye el árbol entero en cada lote: ~31 µs por
-  cuenta (medido), lo que pone un muro en ~50–65 mil cuentas con sellado cada 2 s. Con
-  actualización incremental pasa a O(log n) y deja de ser un límite.
-- **Mensaje de firma legible.** Hoy el usuario firma bytes binarios y la wallet le enseña
-  hexadecimal: no puede leer "pagar 10 XLM a G…". Cambiar el formato del mensaje a texto legible
-  cierra ese hueco de confianza.
+### Phase 2.5 · State scale and readable signatures
+- **Incremental Merkle tree.** Today `root()` rebuilds the full tree each batch (~31 µs per account → wall at ~50–65k accounts with 2 s seal interval). Incremental update → O(log n).
+- **Human-readable signing.** Users currently sign binary/hex in wallets. Readable message format ("pay 10 XLM to G…") closes the trust gap.
 
-### Fase 3 · ZK (2–4 meses)
-- Poseidon2 en hojas/nodos; circuito de transición de estado (Noir/Circom) o zkVM (RISC Zero) con verificador Groth16/UltraHonk en Soroban (BN254, P25).
-- `commit_batch_zk`: sin periodo de desafío → retiros en 1 ledger.
-- Compresión de datos (índices de cuenta, sin firmas en DA) → ~2 500 tx/s de capacidad DA.
+### Phase 3 · ZK (2–4 months)
+- Poseidon2 leaves/nodes; state transition circuit (Noir/Circom) or zkVM with Groth16/UltraHonk verifier on Soroban (BN254, P25)
+- `commit_batch_zk`: no challenge period → withdrawals in 1 ledger
+- DA compression → ~2 500 tx/s capacity
 
-### Fase 4 · Descentralización y cómputo general
-- Inclusión forzada vía L1; rotación de secuenciadores con stake; token de gobernanza si hace falta.
-- "Flash VM": ejecutar contratos Soroban dentro de Flash (soroban-env-host off-chain) con pruebas de validez vía zkVM. Es el equivalente a Nitro/Stylus.
+### Phase 4 · Decentralization and general compute
+- Forced inclusion via L1; sequencer rotation with stake
+- "Flash VM": run Soroban contracts inside Flash with zkVM validity proofs (Nitro/Stylus analogue)
 
-## 3. Demo para Stellar Elite (guion de 5 minutos)
+## 2. Demo script (5 minutes)
 
-1. (30 s) **El problema con datos**: incidente RPC feb-2026, 5–6 s por ledger, 60–75 % de uso, tx_bad_seq en pagos masivos. "No es que Stellar falle: es que la UX depende de infraestructura que sí falla y de 5 segundos que en un checkout son una eternidad."
-2. (60 s) **La idea en una frase**: FXLM. Analogía Arbitrum. Diagrama de `04-arquitectura-tecnica.md`.
-3. (120 s) **Demo en vivo** (`npm run demo` o el Explorer si ya existe): depósito → 200 pagos en 500 ms → lote en L1 → "apagamos Stellar" → 300 pagos siguen confirmando → surge pricing difiere → vuelve → lotes en orden → verificación independiente → prueba Merkle de retiro.
-4. (45 s) **Lo que ya existe**: contrato en testnet (hash), tests, SDK drop-in de 3 líneas. Enseñar el `transfer()` del SDK.
-5. (45 s) **Por qué ahora y qué pedimos**: P25 trae BN254/Poseidon (SDF quiere rollups), nadie lo ha hecho, LATAM necesita pagos instantáneos; pedimos mentoría de SDF para pruebas de fraude/ZK y acceso a SCF.
+1. (30 s) **The problem with data**: RPC incidents, 5–6 s ledgers, surge fees, `tx_bad_seq` on bulk payouts
+2. (60 s) **One-line idea**: FXLM. Arbitrum analogy. Architecture diagram ([04-architecture.md](04-architecture.md))
+3. (120 s) **Live demo**: deposit → 200 payments in 500 ms → L1 batch → simulate Stellar down → payments still confirm → network returns → batches in order → Merkle withdrawal
+4. (45 s) **What exists today**: testnet contract, tests, 3-line SDK `transfer()`
+5. (45 s) **Why now**: P25 BN254/Poseidon, no payment rollup on Stellar yet; ask SDF for fraud-proof/ZK mentorship and SCF access
 
-Tips: tener el JSON de `GET /v1/health` en una pestaña; mostrar `latencyUs` real en pantalla; enlazar el `l1TxHash` a stellar.expert en vivo.
+Tips: keep `GET /v1/health` JSON open; show real `latencyUs`; link `l1TxHash` on stellar.expert live.
 
-## 4. Financiación
+## 3. Funding
 
-- **Stellar Community Fund (SCF)**: Build Award (hasta ~150k USD en XLM por tramos) para infraestructura. Requiere: MVP en testnet, roadmap, equipo, comunidad. Los programas de BAF (Código Alebrije Scale, Impacta) están diseñados como preparación para SCF; usar a los mentores del programa para revisar la aplicación.
-- **SDF grants / bounties de infraestructura**: preguntar en el programa por bounties de "ZK on Stellar" (hay ejemplos financiados: Stellar Private Payments de Nethermind, verificador UltraHonk).
-- **Aceleradoras web3 LATAM y VC**: solo tras Fase 2 (mainnet limitado, métricas reales).
+- **Stellar Community Fund (SCF)**: Build Award (~150k USD in XLM tranches) for infrastructure. Requires testnet MVP, roadmap, team, community.
+- **SDF grants / infrastructure bounties**: ZK on Stellar (Nethermind Stellar Private Payments, UltraHonk verifier examples).
+- **LATAM web3 accelerators / VC**: after Phase 2 (limited mainnet, real metrics).
 
-## 5. Métricas que importan (para SCF y para nosotros)
-- Latencia p50/p99 de confirmación L2; tx/s sostenidas.
-- Nº de lotes publicados y coste medio en XLM por 1 000 pagos.
-- Tiempo de recuperación tras caída de RPC (segundos desde que L1 vuelve hasta que el backlog se publica).
-- Apps integradas y pagos por día; retiros completados y tiempo medio hasta `finalized`.
-- Verificaciones independientes de lotes (descargas del watchtower).
+## 4. Metrics that matter
+
+- L2 confirmation latency p50/p99; sustained tx/s
+- Batches published and average XLM cost per 1 000 payments
+- Recovery time after RPC outage (seconds until backlog published)
+- Integrated apps and daily payments; withdrawals completed and time to `finalized`
+- Independent batch verifications (watchtower downloads)

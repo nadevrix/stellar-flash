@@ -92,12 +92,12 @@ const receipt = await flash.transfer({
 // receipt.finality → { l2: 'instant', l1: 'pending' }
 ```
 
-See [07-sdk-integracion.md](07-sdk-integracion.md) and `/developers` on the live app.
+See [07-sdk-integration.md](07-sdk-integration.md) and `/developers` on the live app.
 
 ---
 
 ## Read next
 
 1. [11-product-and-deployment.md](11-product-and-deployment.md) — production URLs, Render, troubleshooting
-2. [04-arquitectura-tecnica.md](04-arquitectura-tecnica.md) — deep architecture
+2. [04-architecture.md](04-architecture.md) — deep architecture
 3. [10-roadmap.md](10-roadmap.md) — phases 0–4

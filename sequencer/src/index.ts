@@ -54,7 +54,7 @@ if (cfg.l1Mode === 'rpc') {
     try {
       const st = await l1.getBridgeState();
       if (st.batchCount !== sequencer.nextBatch) {
-        console.warn(`[arranque] el contrato tiene ${st.batchCount} lotes y la DB local ${sequencer.nextBatch}. Revisa docs/06-sequencer-backend.md#recuperacion`);
+        console.warn(`[startup] contract has ${st.batchCount} batches, local DB has ${sequencer.nextBatch}. See docs/06-sequencer-api.md#recovery`);
       }
       console.log(`[arranque] puente ${cfg.bridgeContractId}: ${st.batchCount} lotes, ${st.depositCount} depósitos, raíz ${st.stateRoot.slice(0, 16)}…, challenge=${st.challengePeriodLedgers} ledgers`);
       return true;

@@ -365,7 +365,7 @@ function Footer() {
               <h4 className="font-display font-semibold">Project</h4>
               <ul className="mt-4 space-y-2.5 text-ink/55">
                 <li><a href={GITHUB} className="transition hover:text-ink" target="_blank" rel="noreferrer">GitHub</a></li>
-                <li><a href={`${GITHUB}/blob/main/docs/00-EMPIEZA-AQUI.md`} className="transition hover:text-ink" target="_blank" rel="noreferrer">Documentation</a></li>
+                <li><a href={`${GITHUB}/blob/main/docs/00-START-HERE.md`} className="transition hover:text-ink" target="_blank" rel="noreferrer">Documentation</a></li>
                 <li><a href={`${GITHUB}/blob/main/CONTRIBUTING.md`} className="transition hover:text-ink" target="_blank" rel="noreferrer">Contributing</a></li>
               </ul>
             </div>

@@ -1,75 +1,75 @@
 # 08 · Frontend
 
-> **Estado (sep 2026): IMPLEMENTADO** en `frontend/`. UI estilo Stellar Lab (sidebar, wallet global, tema claro).  
-> Guía pública en inglés: [`11-product-and-deployment.md`](11-product-and-deployment.md) · [`00-START-HERE.md`](00-START-HERE.md).
+> **Status (Sep 2026): SHIPPED** in `frontend/`. Stellar Lab–style UI (sidebar, global wallet, light theme).  
+> Public guide: [11-product-and-deployment.md](11-product-and-deployment.md) · [00-START-HERE.md](00-START-HERE.md).
 
-El backend expone todo lo necesario por HTTP JSON con CORS abierto. Este documento define qué construir, con qué y cómo — la mayoría ya está hecha; lo que falta está marcado abajo.
+The backend exposes everything needed via JSON HTTP with open CORS. This document describes the web product — most of it is implemented; gaps are marked below.
 
-## 1. Productos de frontend (en orden de prioridad)
+## 1. Frontend products (priority order)
 
-1. **Flash Explorer + panel de salud** — done: `/explorer`, `/tx/:id`, `/batches/:index`, `/accounts/:G`
-2. **Flash Bridge (dapp de usuario)** — done: `/bridge` (deposit, pay, withdraw, claim)
-3. **Account dashboard** — done: `/account` + wallet global en header
-4. **Consola de desarrollador** — done: `/developers` (docs + API); planned: API keys / métricas por app (fase 2)
+1. **Flash Explorer + health panel** — done: `/explorer`, `/tx/:id`, `/batches/:index`, `/accounts/:G`
+2. **Flash Bridge (user dapp)** — done: `/bridge` (deposit, pay, withdraw, claim)
+3. **Account dashboard** — done: `/account` + global wallet in header
+4. **Developer console** — done: `/developers` (docs + API); planned: API keys / per-app metrics (Phase 2)
 
-## 2. Stack recomendado
+## 2. Stack
 
-- **Vite + React 19 + TypeScript + Tailwind 4** (mismo stack que el proyecto ROLEX del repo padre, así hay familiaridad). Alternativa igual de válida: Next.js si se quiere SSR para SEO del explorer.
-- Estado/data: **TanStack Query** con `refetchInterval` de 1–2 s para health/lotes (o SSE cuando se añada al backend; ver §6).
-- Wallet: **Stellar Wallets Kit** (`@creit.tech/stellar-wallets-kit`) para soportar Freighter, xBull, Albedo, Lobstr, Hana con una sola integración. Necesita `signTransaction` (depósitos/retiros L1) y `signMessage` (pagos Flash, SEP-53; ver `07-sdk-integracion.md#3`).
-- Stellar: `@stellar/stellar-sdk` (rpc.Server para L1) + `@stellar-flash/sdk` (este repo).
-- Gráficas: Recharts (latencia, txs/s, estado L1 en el tiempo).
-- Identidad visual: la de Stellar Flash → negro + amarillo (#FFD100) + acentos violeta, tipografía condensada para titulares (coherente con el estilo de BAF × Stellar de la imagen de aceptación a Stellar Elite).
+- **Vite + React 19 + TypeScript + Tailwind 4**
+- Data: **TanStack Query** with 1–2 s `refetchInterval` (SSE planned in Phase 2)
+- Wallet: **Stellar Wallets Kit** — Freighter, xBull, Albedo, Lobstr, Hana. Needs `signTransaction` (L1) and `signMessage` (Flash payments, SEP-53; see [07-sdk-integration.md](07-sdk-integration.md))
+- Stellar: `@stellar/stellar-sdk` + SDK from this repo
+- Charts: Recharts for latency, tx/s, L1 status over time
+- Visual identity: black + gold (#FFD100) + violet accents, Stellar Lab–inspired layout
 
-## 3. Pantallas del Explorer
+## 3. Explorer screens
 
-### 3.1 Home / "Live"
-- **Semáforo L1**: HEALTHY/DEGRADED/DOWN con `reason`, `latestLedger`, `ledgerAgeSec`, `feeP90`, endpoints con ok/fail y latencia. Fuente: `GET /v1/health` → `l1`.
-- **Decisión de settlement actual**: `settlement.action` + `reason` (COMMIT/DEFER/HOLD) con explicación humana.
-- **Contadores L2**: txs totales (`l2.seq`), pendientes, cuentas, próximo lote, raíz de estado (truncada, copiable).
-- **Timeline** de lotes: tarjetas con índice, txCount, bytes, estado (`sealed` → `committed` → `finalized`), hash L1 (link a stellar.expert), tiempo desde sellado.
-- **Gráfica** de `GET /v1/l1/history`: estado L1 vs. tiempo, superpuesto con lotes publicados. Aquí se ve la tesis.
-- Botón "modo demo" (solo con `L1_MODE=mock`): permite cambiar el modo de la L1 simulada. **Requiere** añadir al backend un endpoint admin `POST /v1/admin/mock-l1 { mode }` protegido por token (no existe aún; 10 líneas en `api/server.ts`).
+### 3.1 Live (`/explorer`)
+- **L1 health strip**: HEALTHY/DEGRADED/DOWN with `reason`, `latestLedger`, `ledgerAgeSec`, `feeP90`, endpoint ok/fail and latency from `GET /v1/health` → `l1`
+- **Settlement decision**: `settlement.action` + human-readable `reason` (COMMIT/DEFER/HOLD)
+- **L2 counters**: total txs, pending, accounts, next batch, state root (truncated, copyable)
+- **Batch timeline**: index, txCount, bytes, status (`sealed` → `committed` → `finalized`), L1 tx link
+- **L1 history chart**: `GET /v1/l1/history` — the core thesis visualization
+- Demo mode button (mock only): requires `POST /v1/admin/mock-l1` — not implemented yet
 
-### 3.2 Lote `/batches/:index`
-`GET /v1/batches/:i?data=1`: cabecera (raíces, cursor de depósitos, hash de datos, tx L1), lista de txs del lote (decodificar `txData` base64 con `decodeBatchData` del protocolo en el navegador), retiros con `wIndex`. Botón **"Verificar lote"**: reconstruye el estado con `replayBatch` de todos los lotes hasta este y compara raíces → "verified in your browser". Es el argumento de confianza más fuerte que se puede mostrar.
+### 3.2 Batch `/batches/:index`
+`GET /v1/batches/:i?data=1`: headers, tx list (decode base64 `txData` with `decodeBatchData`), withdrawals with `wIndex`. **Verify batch** button: `replayBatch` in browser and compare roots — strongest trust argument.
 
-### 3.3 Cuenta `/accounts/:G`
-Saldos por token (mostrar símbolo resolviendo el SAC: XLM nativo, USDC…), nonce, historial (`transactions`), estado L1 de cada tx (`finality.l1`).
+### 3.3 Account `/accounts/:G`
+Balances per token, nonce, history, L1 finality per tx.
 
-### 3.4 Transacción `/tx/:id`
-Detalle, lote, `finality`, y para retiros: prueba Merkle (`/v1/withdrawals/:id/proof`) con botón "Reclamar en L1" cuando `claimable`.
+### 3.4 Transaction `/tx/:id`
+Detail, batch link, finality; for withdrawals: Merkle proof + **Claim on L1** when `claimable`.
 
-## 4. Pantallas del Bridge (dapp)
+## 4. Bridge screens (`/bridge`)
 
-1. **Conectar wallet** (Wallets Kit) → dirección `G…`.
-2. **Depositar**: seleccionar token (lista de `network.allowedTokens` o XLM/USDC por defecto), monto → `flash.buildDepositTx` → `wallet.signTransaction` → `server.sendTransaction` → mostrar "acreditando en Flash…" hasta que `GET /v1/accounts/:G` refleje el saldo (poll 1 s; normalmente 5–10 s).
-3. **Pagar**: destinatario, token, monto → `signingMessage` → `wallet.signMessage` → `flash.submitSigned` → recibo con `latencyUs` en pantalla (mostrar "confirmado en 3 ms").
-4. **Retirar**: monto → `withdraw` (firma SEP-53) → estado del lote → cuando `claimable`, botón "Reclamar" → `buildWithdrawClaimTx` → `signTransaction` → enviar. Explicar el periodo de desafío con cuenta atrás en ledgers.
-5. **Saldos** L1 vs. Flash lado a lado.
+1. Connect wallet → `G…` address
+2. **Deposit**: token + amount → `buildDepositTx` → `signTransaction` → poll until FXLM balance updates (~5–10 s)
+3. **Pay**: recipient, token, amount → SEP-53 sign → submit → show `latencyUs`
+4. **Withdraw**: burn FXLM → wait for challenge period → claim on L1 with Merkle proof
+5. Side-by-side L1 vs Flash balances
 
-## 5. Componentes y estados UX importantes
+## 5. UX principles
 
-- Mostrar siempre dos niveles de finalidad: **"Confirmado en Flash"** (instante) y **"Liquidado en Stellar"** (lote committed/finalized). Nunca ocultar el segundo: es lo que da confianza.
-- Cuando L1 esté DOWN: banner amarillo "Stellar está degradada; tus pagos en Flash siguen confirmándose; los retiros se liquidarán cuando la red vuelva" (texto viene de `l1.reason`).
-- Errores 422 del API con mensajes claros: `BAD_NONCE` → "recarga el nonce" (retry automático una vez), `INSUFFICIENT_BALANCE`, `INVALID_SIGNATURE` → "la wallet firmó otro mensaje".
-- Enlaces a stellar.expert para `l1TxHash` y para el contrato puente.
+- Always show two finality levels: **"Confirmed on Flash"** (instant) and **"Settled on Stellar"** (batch committed/finalized)
+- When L1 is DOWN: yellow banner — Flash payments continue; withdrawals settle when network recovers
+- Clear 422 errors: `BAD_NONCE` (auto-retry once), `INSUFFICIENT_BALANCE`, `SELF_TRANSFER`
+- Link `l1TxHash` and bridge contract on stellar.expert
 
-## 6. Cambios sugeridos en el backend para el frontend
+## 6. Backend gaps for frontend (Phase 2)
 
-- Done: `GET /v1/tokens` — metadatos básicos (símbolo XLM testnet/mainnet)
-- Done: `GET /v1/stats` — txs/s, latencia, lotes
-- Planned: `GET /v1/stream` (SSE) con eventos `tx`, `batch`, `health`
-- Planned: `POST /v1/admin/mock-l1` (solo mock) para demo interactiva
-- Planned: Rate limiting por IP y API key por app
+- Planned: `GET /v1/stream` (SSE) for `tx`, `batch`, `health` events
+- Planned: `POST /v1/admin/mock-l1` for interactive demo
+- Planned: rate limiting and API keys per app
 
-## 7. Estructura de carpetas propuesta
+Done: `GET /v1/tokens`, `GET /v1/stats`
+
+## 7. Folder structure (as shipped)
+
 ```
-frontend/
-  src/
-    app/ (router)            pages/ (Live, Batch, Account, Tx, Bridge)
-    components/ (L1Badge, BatchCard, FinalityPill, ProofViewer, WalletButton)
-    lib/flash.ts (FlashClient singleton)   lib/wallet.ts (Wallets Kit)   lib/verify.ts (replayBatch en navegador)
-    hooks/ (useHealth, useBatches, useAccount)
+frontend/src/
+  pages/          Landing, Bridge, Account, Explorer, Developers, Tx, Batch, AccountPublic
+  components/     AppShell, wallet, health badges, etc.
+  lib/            api client, format helpers, wallet context
 ```
-Nota: `protocol/src/bytes.ts` usa `node:crypto` y `Buffer`; para el navegador crear `bytes.browser.ts` con `crypto.subtle.digest` y `Uint8Array` (misma API) y resolverlo por condición de export en el paquete.
+
+Note: `protocol/src/bytes.ts` uses `node:crypto`; for in-browser batch verification, add a browser build with `crypto.subtle` (Phase 2).

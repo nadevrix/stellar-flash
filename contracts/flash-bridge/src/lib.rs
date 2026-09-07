@@ -14,8 +14,8 @@
 //!    no acreditados se pueden recuperar.
 //!
 //! Modelo de confianza v0: secuenciador único (igual que Arbitrum One en 2021). Las pruebas de
-//! fraude (`challenge_batch`) y la inclusión forzada están especificadas en `docs/05-contratos-soroban.md`
-//! como fase 2. Ver también `docs/04-arquitectura-tecnica.md`.
+//! Fraud proofs (`challenge_batch`) and forced inclusion are Phase 2 — see docs/10-roadmap.md.
+//! Architecture: docs/04-architecture.md.
 //!
 //! ## Formato de hojas Merkle (debe coincidir byte a byte con `protocol/src/merkle.ts`)
 //! - `leaf_state      = sha256(0x00 || xdr(ScVal(account)) || xdr(ScVal(token)) || balance_i128_be || nonce_u64_be)`

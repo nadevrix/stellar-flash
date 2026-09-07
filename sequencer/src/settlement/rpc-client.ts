@@ -2,7 +2,7 @@
  * Cliente L1 real: Stellar RPC + contrato `flash-bridge`.
  *
  * Aplica las buenas prácticas que la mayoría de apps sobre Stellar NO aplican y que explican el
- * "se quedó en procesando" (ver docs/01-diagnostico-problema.md):
+ * Stuck "processing" UX when RPC is degraded (see docs/04-architecture.md §4.3):
  *  - varios endpoints RPC con failover automático;
  *  - puja de fee de inclusión basada en `getFeeStats` (la decide la política de settlement);
  *  - `sendTransaction` NO es confirmación: se hace polling de `getTransaction` hasta SUCCESS/FAILED;

@@ -1,125 +1,102 @@
-# Cómo contribuir a Stellar Flash
+# Contributing to Stellar Flash
 
-Gracias por mirar el código. Este documento reúne lo que necesitas para no perder tiempo:
-requisitos, cómo correr todo, invariantes que no se pueden romper y los gotchas del stack.
+Thanks for looking at the code. This document covers requirements, how to run everything, invariants you must not break, and stack gotchas.
 
-## 1. Requisitos
+## 1. Requirements
 
-- **Node ≥ 22.18** (probado con 26). El proyecto usa *type stripping* nativo: no hay build de TS.
-- **Rust** con el target `wasm32v1-none` (`rustup target add wasm32v1-none`) para el contrato.
-- **stellar-cli 28.x** solo si vas a desplegar ([releases](https://github.com/stellar/stellar-cli/releases)).
-- Una sola dependencia de producción: `@stellar/stellar-sdk` ^17.
+- **Node ≥ 22.18** (tested with 26). The project uses native type stripping — no TS build step.
+- **Rust** with target `wasm32v1-none` (`rustup target add wasm32v1-none`) for the contract.
+- **stellar-cli 28.x** only if deploying ([releases](https://github.com/stellar/stellar-cli/releases)).
+- Single production dependency: `@stellar/stellar-sdk` ^17.
 
-## 2. Arrancar
+## 2. Getting started
 
 ```bash
 npm install
-npm test                  # tests TS (protocolo, secuenciador, SDK)
+npm test                  # TS tests (protocol, sequencer, SDK)
 npm run typecheck         # tsc --noEmit, strict + erasableSyntaxOnly
-npm run demo              # demo end-to-end con L1 simulada
-npm run contract:test     # tests Rust del contrato
-npm run contract:build    # WASM en contracts/target/wasm32v1-none/release/
-npm start                 # secuenciador en modo mock → http://127.0.0.1:8787/v1/health
+npm run demo              # end-to-end with simulated L1
+npm run contract:test     # Rust contract tests
+npm run contract:build    # WASM in contracts/target/wasm32v1-none/release/
+npm start                 # sequencer in mock mode → http://127.0.0.1:8787/v1/health
 ```
 
-Contra Stellar testnet real:
+Against Stellar testnet:
 
 ```bash
-bash scripts/deploy-testnet.sh          # despliega el contrato y escribe .env
+bash scripts/deploy-testnet.sh
 set -a; source .env; set +a
-node sequencer/src/index.ts             # secuenciador en L1_MODE=rpc
-node scripts/testnet-e2e.ts             # depósito → pago → lote → retiro con prueba Merkle
+node sequencer/src/index.ts             # L1_MODE=rpc
+node scripts/testnet-e2e.ts             # deposit → pay → batch → Merkle withdraw
 ```
 
-## 3. Mapa del repo
+## 3. Repository map
 
-| Carpeta | Qué es |
+| Folder | Purpose |
 |---|---|
-| `contracts/flash-bridge/` | Contrato Soroban (Rust): bóveda, raíces de lote, `withdraw` con Merkle, escape hatch |
-| `protocol/src/` | Reglas compartidas Rust↔TS: `bytes`, `merkle`, `tx`, `state`. Es la máquina de estado |
-| `sequencer/src/` | Secuenciador: `core`, `db`, `settlement` (health/policy/engine/rpc), `api` |
-| `sdk/src/` | Cliente TS para integradores |
-| `spec/` | Vectores de prueba cruzados Rust↔TS |
+| `contracts/flash-bridge/` | Soroban contract: vault, batch roots, Merkle `withdraw`, escape hatch |
+| `protocol/src/` | Shared Rust↔TS rules: `bytes`, `merkle`, `tx`, `state` |
+| `sequencer/src/` | Sequencer: `core`, `db`, `settlement`, `api` |
+| `sdk/src/` | TypeScript client for integrators |
+| `spec/` | Cross-language test vectors |
 
-## 4. Invariantes que no se pueden romper
+Public docs: `docs/` (English). Internal Spanish notes live outside this repo.
 
-1. **El hashing Merkle es idéntico en Rust y en TS.** Si tocas `protocol/src/merkle.ts` o `contracts/flash-bridge/src/lib.rs`, actualiza los dos **y** `spec/merkle-vectors.txt`, y comprueba que coinciden byte a byte:
+## 4. Invariants (do not break)
+
+1. **Merkle hashing must be identical in Rust and TS.** If you touch `protocol/src/merkle.ts` or `contracts/flash-bridge/src/lib.rs`, update both **and** `spec/merkle-vectors.txt`:
    ```bash
    node scripts/gen-vectors.ts
    cd contracts && cargo test print_vectors -- --nocapture
    ```
-2. **`escape` y `reclaim_deposit` nunca se pueden pausar.** El admin no puede bloquear la salida de emergencia; hay un test que lo verifica. Es lo que hace que el sistema no sea custodial.
-3. **El protocolo no puede depender de Node.** Nada de `node:crypto` ni `Buffer` en `protocol/`:
-   ese código corre también en el navegador, donde la dapp construye el mensaje que firma la wallet.
-   Que lo construya el cliente es lo que impide que un backend malicioso te haga firmar otro pago.
-4. **El secuenciador no puede depender de un solo RPC.** Failover y monitor de salud son obligatorios; un endpoint caído no puede tumbar el servicio.
-5. **El secuenciador debe arrancar aunque Stellar esté caída.** Los pagos L2 no dependen de la L1; los lotes esperan. Cualquier `await` a la L1 en el arranque va con `try/catch` y reintento en segundo plano.
-6. **Orden en `submit`: validar → persistir → aplicar.** El log es la fuente de verdad; el estado en memoria se reconstruye desde él.
-7. **Un solo secuenciador.** Dos instancias firmando `commit_batch` corrompen la secuencia de la cuenta. El despliegue debe ser de instancia única.
+2. **`escape` and `reclaim_deposit` must never be pausable.** Admin cannot block emergency exit — there is a test for this.
+3. **Protocol must not depend on Node.** No `node:crypto` or `Buffer` in `protocol/` — it also runs in the browser for wallet signing.
+4. **Sequencer must not depend on a single RPC.** Failover and health monitor are mandatory.
+5. **Sequencer must start even if Stellar is down.** L2 payments do not require L1; any L1 `await` on startup uses try/catch and background retry.
+6. **Order in `submit`: validate → persist → apply.** Log is source of truth.
+7. **Single active sequencer.** Two instances signing `commit_batch` corrupt the account sequence.
 
-## 5. Estilo de código
+## 5. Code style
 
-- TypeScript sin build: **no uses `enum`, ni parameter properties**, importa con extensión `.ts` y usa `import type`. Node no hace type stripping dentro de `node_modules`, por eso los paquetes internos se importan por ruta relativa en vez de con workspaces.
-- Tests con `node:test`. Nombres de error estables (el SDK los expone como `code`).
-- Comentarios en español en las piezas de dominio, explicando el *por qué*, no el *qué*.
+- TypeScript without build: **no `enum`, no parameter properties**; import with `.ts` extension; use `import type`.
+- Tests with `node:test`. Stable error names (exposed as `code` by the SDK).
+- Domain comments may be in Spanish in source files; public docs are English.
 
-## 6. Gotchas del stack (ahorran horas)
+## 6. Stack gotchas
 
 **`@stellar/stellar-sdk` v17**
-- Los enums XDR son **instancias, no funciones**: `xdr.ScValType.scvAddress` sin paréntesis.
-- `Transaction.hash()` devuelve `Uint8Array` → `Buffer.from(...).toString('hex')`.
-- Para diagnosticar envíos rechazados: `sendTransaction().errorResult.toXDR('base64')`.
-- `getTransaction(...).resultXdr` **no tiene `.result()`**: usa `resultXdr.toXdrObject()`, que devuelve
-  un objeto plano donde `feeCharged` es una **propiedad**, no un método.
+- XDR enums are **instances, not functions**: `xdr.ScValType.scvAddress` without parentheses.
+- `Transaction.hash()` returns `Uint8Array` → `Buffer.from(...).toString('hex')`.
+- `getTransaction(...).resultXdr` has no `.result()`: use `resultXdr.toXdrObject()`.
 
 **`soroban-sdk` 27**
 - `env.crypto().sha256(&bytes).to_bytes()` → `BytesN<32>`.
-- `Address::to_xdr(env)` requiere `use soroban_sdk::xdr::ToXdr` y **consume `self`** (clona antes).
-- `env.events().publish` está deprecado → usa `#[contractevent]` (el topic es el nombre en snake_case).
-- Tests: `env.register(Contract, (args…))`, `env.register_stellar_asset_contract_v2(admin)`, `env.ledger().with_mut(|l| l.sequence_number += n)`.
+- `Address::to_xdr(env)` requires `use soroban_sdk::xdr::ToXdr` and **consumes `self`** (clone first).
+- Use `#[contractevent]` instead of deprecated `env.events().publish`.
 
-**Límites de lote (medidos en testnet, sep-2026)**
-- Un lote de 250 pagos = 54 754 B de datos → transacción Soroban de **110 416 B** (2,02x de overhead
-  XDR), el 84 % del máximo por transacción (132 096 B). Por eso `MAX_BATCH_BYTES` es 60 000.
-- Coste real: **818 590 stroops (0,082 XLM) por lote**, es decir **0,33 XLM por cada 1000 pagos**.
-- Capacidad de publicación: caben 2 lotes así por ledger → **~100 pagos/s sostenidos** en L1 hoy.
-  La confirmación en L2 es mucho más rápida; el techo está en la disponibilidad de datos, y es lo
-  que ataca la fase ZK con compresión. Reproducir con `node scripts/measure-batch-cost.ts`.
+**Batch limits (testnet, Sep 2026)**
+- 250 payments = 54 754 B batch data → 110 416 B Soroban tx (84% of max 132 096 B). Hence `MAX_BATCH_BYTES` = 60 000.
+- Cost: ~818 590 stroops (0.082 XLM) per batch ≈ 0.33 XLM per 1 000 payments.
+- Reproduce with `node scripts/measure-batch-cost.ts`.
 
-**Límite de escala conocido: la raíz del estado (medido, sep-2026)**
-`FlashState.root()` **reconstruye el árbol Merkle entero** en cada llamada, y se llama al sellar
-cada lote. Coste medido: **~31 µs por cuenta**, lineal.
-
-| Cuentas | Tiempo por raíz |
-|---|---|
-| 1 000 | 47 ms |
-| 10 000 | 316 ms |
-| 50 000 | 1 569 ms |
-
-Con `SEAL_INTERVAL_MS=2000` el muro está en **~50–65 mil cuentas**: a partir de ahí calcular la raíz
-tarda más que el intervalo de sellado y el secuenciador se queda atrás. Hoy es de sobra suficiente,
-pero es el primer límite duro que se encontrará.
-
-**Arreglo**: árbol Merkle incremental — actualizar solo el camino de la hoja modificada a la raíz
-(O(log n): ~20 hashes en vez de un millón). **Toca el contrato**, porque `verify_proof` valida contra
-la misma estructura, así que hay que cambiar Rust, TypeScript y `spec/merkle-vectors.txt` a la vez.
-Reproducir el número antes de tocar nada.
+**State root scale limit**
+`FlashState.root()` rebuilds the full Merkle tree each seal (~31 µs per account). Wall at ~50–65k accounts with 2 s seal interval. Fix: incremental Merkle (touches contract + protocol + vectors together).
 
 **Stellar RPC**
-- La respuesta de `getLatestLedger` supera los 4 KB (lleva `metadataXdr`), así que llega **en varios chunks**: acumula stdin antes de parsear o tendrás un `Unterminated string in JSON`.
-- `sendTransaction` devuelve `PENDING`, no éxito: hay que hacer polling de `getTransaction`.
+- `getLatestLedger` response can exceed 4 KB — accumulate chunks before parsing JSON.
+- `sendTransaction` returns `PENDING` — poll `getTransaction`.
 
-**SAC conocidos**
+**Known SAC addresses**
 - XLM testnet: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`
 - XLM mainnet: `CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA`
 
-## 7. Antes de abrir un PR
+## 7. Before opening a PR
 
-- `npm test` y `npm run typecheck` en verde; `cargo test` si tocaste Rust.
-- Si cambiaste el codec o el hashing, los vectores cruzados regenerados y coincidiendo.
-- Si cambiaste el contrato, di explícitamente si rompe compatibilidad con un despliegue existente.
+- `npm test` and `npm run typecheck` green; `cargo test` if you touched Rust.
+- If you changed codec or hashing, regenerated cross-vectors must match.
+- If you changed the contract, state whether it breaks an existing deployment.
 
-## 8. Versiones ancla
+## 8. Anchor versions
 
-- Stellar mainnet: **Protocolo 27**. Testnet puede ir un protocolo por delante (28 al momento de escribir).
+- Stellar mainnet: **Protocol 27**. Testnet may be one ahead.
 - `soroban-sdk` 27.0.6 · `@stellar/stellar-sdk` ^17 · `stellar-cli` 28.x · target `wasm32v1-none`.

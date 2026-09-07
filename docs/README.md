@@ -2,7 +2,7 @@
 
 **Stellar Flash** is a payment rollup on Stellar: millisecond confirmation with the same `G…` keys and SAC tokens, batched settlement on L1 when the network is healthy.
 
-This folder is the **public, English** documentation for GitHub and demos. Detailed Spanish technical specs remain in the numbered files (`01`–`10`); this README and the English guides below are the presentation layer.
+All documentation in this folder is **English** and intended for GitHub, judges, and integrators.
 
 ---
 
@@ -12,10 +12,10 @@ This folder is the **public, English** documentation for GitHub and demos. Detai
 |----------|---------|
 | [00-START-HERE.md](00-START-HERE.md) | Overview, repo map, quick start |
 | [11-product-and-deployment.md](11-product-and-deployment.md) | Live product, URLs, Render ops, troubleshooting |
-| [04-arquitectura-tecnica.md](04-arquitectura-tecnica.md) | Architecture (Spanish, technical depth) |
-| [06-sequencer-backend.md](06-sequencer-backend.md) | HTTP API reference (Spanish) |
-| [07-sdk-integracion.md](07-sdk-integracion.md) | SDK & wallet integration (Spanish) |
-| [08-frontend.md](08-frontend.md) | Frontend spec + **implementation status** |
+| [04-architecture.md](04-architecture.md) | Technical architecture, flows, trust model |
+| [06-sequencer-api.md](06-sequencer-api.md) | HTTP API reference |
+| [07-sdk-integration.md](07-sdk-integration.md) | SDK and wallet integration (SEP-53) |
+| [08-frontend.md](08-frontend.md) | Web app spec and implementation status |
 | [10-roadmap.md](10-roadmap.md) | Phases and funding path |
 
 ---

@@ -1,6 +1,6 @@
 /**
  * API HTTP del secuenciador (JSON). Sin framework: `node:http` es suficiente y sin dependencias.
- * Especificación completa y ejemplos en `docs/06-sequencer-backend.md`.
+ * Full spec in `docs/06-sequencer-api.md`.
  *
  *  GET  /v1/health                         estado L2 + salud L1 + última decisión de settlement
  *  GET  /v1/accounts/:address              saldos/nonces por token + últimas txs
