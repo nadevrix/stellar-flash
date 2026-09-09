@@ -69,7 +69,9 @@ export class FlashClient {
   constructor(opts: FlashClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, '');
     this.keypair = opts.keypair;
-    this.fetchFn = opts.fetch ?? fetch;
+    // En el navegador `fetch` suelto no es un método de Window y revienta al retirar/pagar.
+    const impl = opts.fetch ?? globalThis.fetch.bind(globalThis);
+    this.fetchFn = (input, init) => impl.call(globalThis, input, init);
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
