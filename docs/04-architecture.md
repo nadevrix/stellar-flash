@@ -78,9 +78,14 @@ Batch encoding: `u32 count || repeat(u16 len || tx_bytes)`. One `transfer` is **
 ## 4. Flows
 
 ### 4.1 Deposit (L1 → L2)
-1. User calls `deposit(from, token, amount, l2_recipient)` on the contract (Stellar tx signed by wallet). Contract moves tokens to vault, stores `Deposit(index)`, emits `deposit` event.
-2. Sequencer scans events (`getEvents` filtered by contract + `deposit` topic) and calls `ingestDeposit` in index order. Stellar has no reorgs: an event in a closed ledger is final (~5 s).
-3. Deposit enters the batch as a `deposit` tx; state credits balance; `deposit_cursor` advances.
+
+**What the user does:** send native XLM with a classic Stellar payment (Horizon) to the sequencer account advertised in `GET /v1/health` → `network.onramp.address`. Any wallet that can pay XLM works. No Soroban RPC in the browser.
+
+**What we do:** the operator watches Horizon, then calls `deposit(sequencer, token, amount, l2_recipient=sender)` on the contract using the sequencer key and RPC failover. The existing event scanner credits FXLM 1:1. Funds in the vault are the same as a user-invoked deposit.
+
+Until `relayDeposit` lands, XLM sits on the operator account (seconds). After that, solvency / escape / Merkle apply as before.
+
+Apps that want to skip the operator can still call `deposit` on the contract directly (`buildDepositTx`).
 
 ### 4.2 Payment (L2)
 1. App fetches nonce (`GET /v1/accounts/:g/nonce?token=`), builds and signs `transfer`, `POST /v1/transactions`.
@@ -96,8 +101,8 @@ Batch encoding: `u32 count || repeat(u16 len || tx_bytes)`. One `transfer` is **
 
 ### 4.4 Withdrawal (L2 → L1)
 1. User signs `withdraw` (burns L2 balance). Sequencer assigns `w_index` in the batch.
-2. When batch is `finalized`, `GET /v1/withdrawals/:txId/proof` returns Merkle proof.
-3. Anyone calls `withdraw(batch_index, w_index, recipient, token, amount, proof)` on contract → tokens to recipient. Idempotent (`Claimed`).
+2. When the batch is `finalized`, the operator calls `withdraw(...)` on the contract (anyone may; funds always go to `recipient`).
+3. The user receives XLM on Stellar. Watchtowers can still claim themselves with `GET /v1/withdrawals/:txId/proof` if they prefer not to wait for us.
 
 ### 4.5 Emergency exits (no sequencer cooperation)
 - **`escape`**: if sequencer has not published for > `liveness_timeout` ledgers, any account proves its leaf against the last **finalized** batch root and withdraws everything.

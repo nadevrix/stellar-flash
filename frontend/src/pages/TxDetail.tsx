@@ -48,7 +48,7 @@ export function TxDetail() {
             </Card>
           )}
           {tx.type === 'withdraw' && (
-            <Link to="/bridge"><BtnPrimary>Claim in Bridge</BtnPrimary></Link>
+            <Link to="/bridge"><BtnPrimary>Track withdrawal in Bridge</BtnPrimary></Link>
           )}
           <a href={`${SEQUENCER_URL}/v1/transactions/${tx.id}`} target="_blank" rel="noreferrer"
             className="block text-xs text-muted underline">Raw JSON</a>

@@ -4,9 +4,8 @@
 
 Stellar Flash is a **payment rollup on Stellar**, not a new chain.
 
-- Users deposit XLM (or other allowed SAC tokens) into the `flash-bridge` Soroban contract.
-- They receive **FXLM** (1:1, same `G…` address) credited by the sequencer.
-- Payments inside Flash confirm in **~2–6 ms** (signed with SEP-53).
+- Users send ordinary XLM; we lock it in the `flash-bridge` vault and credit **FXLM** 1:1 on the same `G…` address.
+- Payments inside Flash confirm in **~2–6 ms** (SEP-53). The user never talks to a Soroban RPC.
 - Batches settle on Stellar L1 when the network is healthy.
 - Withdrawals burn FXLM and release XLM via Merkle proofs; an **escape hatch** remains available if the sequencer disappears.
 

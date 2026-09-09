@@ -35,6 +35,8 @@ if (h) {
   const n = h.l1?.endpoints?.length ?? 0;
   check(n >= 2, 'RPC failover', n >= 2 ? `${n} endpoints` : `${n} endpoint — pega RPC_URLS del render.yaml en el dashboard de Render`);
   check(!!h.network?.bridgeContractId?.startsWith('C'), 'bridge contract', h.network?.bridgeContractId ?? 'missing');
+  const onrampAddr = (h.network as { onramp?: { address?: string; enabled?: boolean } } | undefined)?.onramp?.address;
+  check(!!onrampAddr?.startsWith('G'), 'onramp address', onrampAddr ?? 'missing — el secuenciador debe anunciar network.onramp');
 }
 
 const tokens = await get(`${API}/v1/tokens`);

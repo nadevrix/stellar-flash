@@ -21,9 +21,9 @@ The static site is a SPA: all routes (`/bridge`, `/explorer`, …) rewrite to `i
 
 ### Bridge (`/bridge`)
 1. Connect wallet (Freighter, xBull, Lobstr, Albedo, Hana, Rabet) on **testnet**
-2. **Deposit** — Stellar transaction (~5 s); XLM locked in contract; FXLM credited by sequencer
+2. **Deposit** — ordinary XLM payment (~5 s) to the sequencer address. We lock it in the vault and credit FXLM. No Soroban RPC in the wallet.
 3. **Pay** — instant FXLM transfer to another `G…` address (not yourself)
-4. **Withdraw** — burn FXLM; after challenge period, **claim** XLM on L1 with Merkle proof
+4. **Withdraw** — burn FXLM; after the challenge period **we** send XLM back to your Stellar account
 
 ### Account (`/account`)
 Dashboard for the connected wallet: FXLM balances, nonce, transaction history, links to Bridge.
@@ -41,8 +41,10 @@ SDK install snippet, HTTP API table, integration patterns, link to `examples/bou
 FXLM is **not** a Stellar asset in the user's wallet. Balances live in the **sequencer's L2 state** (SQLite on a persistent disk), keyed by Stellar address.
 
 Freighter holds **XLM on L1** and signs:
-- Stellar transactions for deposit and withdraw claim
-- SEP-53 messages for Flash payments
+- A classic Stellar **payment** to enter (Horizon — not a contract call)
+- SEP-53 messages for Flash payments and withdraw requests
+
+The sequencer signs Soroban `deposit` / `withdraw` against the vault, with RPC failover.
 
 ---
 
@@ -79,7 +81,8 @@ Defined in `render.yaml`:
 | `ALLOWED_TOKENS` | XLM SAC contract id on testnet |
 | `BRIDGE_CONTRACT_ID` | Deployed contract id |
 | `SEQUENCER_SECRET` | Sequencer signing key (S…) |
-| `DEPOSIT_SCAN_START_LEDGER` | Ledger height when contract was deployed |
+| `DEPOSIT_SCAN_START_LEDGER` | Ledger height when the contract was deployed |
+| `HORIZON_URL` | Horizon for classic XLM onramp (`https://horizon-testnet.stellar.org`) |
 | `CHALLENGE_PERIOD_LEDGERS` | `20` |
 
 ### PaaS auto-detection (since commit `8c01a4b`)
@@ -168,8 +171,9 @@ After every sequencer deploy:
 2. `l1.endpoints` has **two** RPCs. If it shows one, paste `RPC_URLS` from `render.yaml` into the dashboard (Blueprint env is ignored on services created by hand)
 3. `GET /v1/tokens` and `GET /v1/assets` return the XLM SAC id (not 404)
 4. Logs contain `[db] backup cada 60s → /var/data/flash.db.bak`
-5. Smoke: `/bridge` deposit → pay another `G…` → withdraw → claim (~2 min challenge)
+5. Smoke: `/bridge` send XLM → FXLM appears → pay another `G…` → withdraw (XLM returns without a Claim button, ~2 min challenge)
 6. Enable Render disk snapshots for `flash-data`
+7. `GET /v1/health` → `network.onramp.address` is the sequencer `G…` (classic payments go there)
 
 Do **not** run `scripts/deploy-testnet.sh` against the live service: it deploys a **new** contract and desyncs the sequencer DB.
 

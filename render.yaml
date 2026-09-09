@@ -49,6 +49,8 @@ services:
         value: CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
       - key: CHALLENGE_PERIOD_LEDGERS
         value: "20"
+      - key: HORIZON_URL
+        value: https://horizon-testnet.stellar.org
       # Específicos del despliegue (contrato desplegado, llave y ledger inicial): en el panel.
       - key: BRIDGE_CONTRACT_ID
         sync: false

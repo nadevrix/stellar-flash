@@ -53,11 +53,28 @@ export class L1Error extends Error {
   }
 }
 
+export interface ClaimWithdrawalArgs {
+  batchIndex: bigint;
+  wIndex: number;
+  recipient: string;
+  token: string;
+  amount: bigint;
+  /** Hermanos Merkle en hex. */
+  proof: string[];
+}
+
 export interface L1Client {
   readonly endpoints: string[];
   probe(timeoutMs: number): Promise<EndpointProbe[]>;
   getBridgeState(): Promise<BridgeState>;
   commitBatch(args: CommitBatchArgs, maxInclusionFeeStroops: number): Promise<CommitResult>;
+  /**
+   * El secuenciador deposita en la bóveda y acredita `l2Recipient`. El usuario NO llama a
+   * Soroban: mandó XLM clásico a la cuenta del secuenciador; aquí se cierra el 1:1.
+   */
+  relayDeposit(token: string, amount: bigint, l2Recipient: string, maxInclusionFeeStroops: number): Promise<CommitResult>;
+  /** Reclama un retiro finalizado. Cualquiera puede pagarlo; los fondos van a `recipient`. */
+  claimWithdrawal(args: ClaimWithdrawalArgs, maxInclusionFeeStroops: number): Promise<CommitResult>;
   /** Eventos `deposit` del puente en (fromLedger, toLedger]. */
   fetchDeposits(fromLedger: number, limit: number): Promise<{ deposits: DepositEvent[]; latestLedger: number }>;
   /**
@@ -90,6 +107,8 @@ export interface MockL1Options {
   /** Segundos entre ledgers simulados. */
   ledgerIntervalSec?: number;
   now?: () => number;
+  /** Cuenta que "firma" los depósitos relay (G… del secuenciador). */
+  sequencerAccount?: string;
 }
 
 interface MockBatch extends CommitBatchArgs {
@@ -112,10 +131,12 @@ export class MockL1Client implements L1Client {
   private readonly ledgerIntervalSec: number;
   private readonly challenge: number;
   private readonly now: () => number;
+  readonly sequencerAccount: string;
   readonly batches: MockBatch[] = [];
   readonly deposits: DepositEvent[] = [];
   commitCalls = 0;
   private tryAgainEvery = 0;
+  private readonly claimedKeys = new Set<string>();
 
   constructor(opts: MockL1Options = {}) {
     this.ledger = opts.startLedger ?? 1_000_000;
@@ -123,6 +144,7 @@ export class MockL1Client implements L1Client {
     this.challenge = opts.challengePeriodLedgers ?? 20;
     this.now = opts.now ?? (() => Date.now());
     this.lastCloseAt = Math.floor(this.now() / 1000);
+    this.sequencerAccount = opts.sequencerAccount ?? 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
   }
 
   /** Avanza la cadena simulada `n` ledgers (si no está caída). */
@@ -134,6 +156,22 @@ export class MockL1Client implements L1Client {
 
   get latestLedger(): number {
     return this.ledger;
+  }
+
+  async relayDeposit(token: string, amount: bigint, l2Recipient: string, _maxInclusionFeeStroops: number): Promise<CommitResult> {
+    if (this.mode === 'down') throw new L1Error('NETWORK', 'mock L1 caída: no se puede depositar');
+    const ev = this.deposit(this.sequencerAccount, token, amount, l2Recipient);
+    return { txHash: ev.l1TxHash, ledger: ev.ledger };
+  }
+
+  async claimWithdrawal(args: ClaimWithdrawalArgs, _maxInclusionFeeStroops: number): Promise<CommitResult> {
+    if (this.mode === 'down') throw new L1Error('NETWORK', 'mock L1 caída');
+    const key = `${args.batchIndex}:${args.wIndex}`;
+    if (this.claimedKeys.has(key)) throw new L1Error('TX_FAILED', 'AlreadyClaimed');
+    this.claimedKeys.add(key);
+    this.claimed.set(args.token, (this.claimed.get(args.token) ?? 0n) + args.amount);
+    this.advanceLedgers(1);
+    return { txHash: toHex(sha256(utf8(`mock-claim-${key}`))), ledger: this.ledger };
   }
 
   /** Simula un usuario llamando `deposit` en el contrato. */

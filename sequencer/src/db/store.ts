@@ -80,6 +80,29 @@ export interface HealthLogRecord {
   reason: string;
 }
 
+export type OnrampStatus = 'seen' | 'deposited' | 'skipped' | 'failed';
+export type OfframpStatus = 'pending' | 'claimed' | 'failed';
+
+export interface OnrampRecord {
+  paymentId: string;
+  txHash: string;
+  from: string;
+  amount: string;
+  status: OnrampStatus;
+  depositTxHash: string | null;
+  error: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface OfframpRecord {
+  txId: string;
+  status: OfframpStatus;
+  claimTxHash: string | null;
+  error: string | null;
+  updatedAt: number;
+}
+
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;
@@ -158,6 +181,25 @@ CREATE TABLE IF NOT EXISTS health_log (
   ok_endpoints INTEGER NOT NULL,
   total_endpoints INTEGER NOT NULL,
   reason TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS onramp (
+  payment_id TEXT PRIMARY KEY,
+  tx_hash TEXT NOT NULL,
+  from_account TEXT NOT NULL,
+  amount TEXT NOT NULL,
+  status TEXT NOT NULL,
+  deposit_tx_hash TEXT,
+  error TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_onramp_from ON onramp(from_account, updated_at);
+CREATE TABLE IF NOT EXISTS offramp (
+  tx_id TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  claim_tx_hash TEXT,
+  error TEXT,
+  updated_at INTEGER NOT NULL
 );
 `;
 
@@ -404,6 +446,71 @@ export class Store {
       reason: String(r.reason),
     }));
   }
+
+  // ---- onramp (pagos XLM clásicos → depósito en la bóveda) ----
+  insertOnramp(r: OnrampRecord) {
+    this.db
+      .prepare(
+        `INSERT INTO onramp(payment_id, tx_hash, from_account, amount, status, deposit_tx_hash, error, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(payment_id) DO NOTHING`,
+      )
+      .run(r.paymentId, r.txHash, r.from, r.amount, r.status, r.depositTxHash, r.error, r.createdAt, r.updatedAt);
+  }
+
+  updateOnramp(paymentId: string, patch: { status: OnrampStatus; depositTxHash?: string | null; error?: string | null; updatedAt: number }) {
+    this.db
+      .prepare('UPDATE onramp SET status = ?, deposit_tx_hash = COALESCE(?, deposit_tx_hash), error = ?, updated_at = ? WHERE payment_id = ?')
+      .run(patch.status, patch.depositTxHash ?? null, patch.error ?? null, patch.updatedAt, paymentId);
+  }
+
+  getOnramp(paymentId: string): OnrampRecord | undefined {
+    const row = this.db.prepare('SELECT * FROM onramp WHERE payment_id = ?').get(paymentId) as Row | undefined;
+    return row ? rowToOnramp(row) : undefined;
+  }
+
+  pendingOnramps(limit = 20): OnrampRecord[] {
+    const rows = this.db
+      .prepare("SELECT * FROM onramp WHERE status IN ('seen', 'failed') ORDER BY created_at ASC LIMIT ?")
+      .all(limit) as Row[];
+    return rows.map(rowToOnramp);
+  }
+
+  listOnramp(account?: string, limit = 50): OnrampRecord[] {
+    const rows = account
+      ? (this.db.prepare('SELECT * FROM onramp WHERE from_account = ? ORDER BY created_at DESC LIMIT ?').all(account, limit) as Row[])
+      : (this.db.prepare('SELECT * FROM onramp ORDER BY created_at DESC LIMIT ?').all(limit) as Row[]);
+    return rows.map(rowToOnramp);
+  }
+
+  // ---- offramp (auto-claim de retiros finalizados) ----
+  upsertOfframp(r: OfframpRecord) {
+    this.db
+      .prepare(
+        `INSERT INTO offramp(tx_id, status, claim_tx_hash, error, updated_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(tx_id) DO UPDATE SET status = excluded.status, claim_tx_hash = excluded.claim_tx_hash, error = excluded.error, updated_at = excluded.updated_at`,
+      )
+      .run(r.txId, r.status, r.claimTxHash, r.error, r.updatedAt);
+  }
+
+  getOfframp(txId: string): OfframpRecord | undefined {
+    const row = this.db.prepare('SELECT * FROM offramp WHERE tx_id = ?').get(txId) as Row | undefined;
+    return row ? rowToOfframp(row) : undefined;
+  }
+
+  /** Retiros en lotes finalizados que aún no hemos marcado como reclamados. */
+  withdrawalsToClaim(limit = 10): WithdrawalRecord[] {
+    const rows = this.db
+      .prepare(
+        `SELECT w.* FROM withdrawals w
+         JOIN batches b ON b.batch_index = w.batch_index
+         LEFT JOIN offramp o ON o.tx_id = w.tx_id
+         WHERE b.status = 'finalized' AND (o.tx_id IS NULL OR o.status IN ('pending', 'failed'))
+         ORDER BY w.batch_index ASC, w.w_index ASC
+         LIMIT ?`,
+      )
+      .all(limit) as Row[];
+    return rows.map(rowToWithdrawal);
+  }
 }
 
 function rowToTx(r: Row): TxRecord {
@@ -454,5 +561,29 @@ function rowToWithdrawal(r: Row): WithdrawalRecord {
     recipient: String(r.recipient),
     token: String(r.token),
     amount: String(r.amount),
+  };
+}
+
+function rowToOnramp(r: Row): OnrampRecord {
+  return {
+    paymentId: String(r.payment_id),
+    txHash: String(r.tx_hash),
+    from: String(r.from_account),
+    amount: String(r.amount),
+    status: r.status as OnrampStatus,
+    depositTxHash: r.deposit_tx_hash === null ? null : String(r.deposit_tx_hash),
+    error: r.error === null ? null : String(r.error),
+    createdAt: Number(r.created_at),
+    updatedAt: Number(r.updated_at),
+  };
+}
+
+function rowToOfframp(r: Row): OfframpRecord {
+  return {
+    txId: String(r.tx_id),
+    status: r.status as OfframpStatus,
+    claimTxHash: r.claim_tx_hash === null ? null : String(r.claim_tx_hash),
+    error: r.error === null ? null : String(r.error),
+    updatedAt: Number(r.updated_at),
   };
 }

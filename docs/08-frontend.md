@@ -8,7 +8,7 @@ The backend exposes everything needed via JSON HTTP with open CORS. This documen
 ## 1. Frontend products (priority order)
 
 1. **Flash Explorer + health panel** — done: `/explorer`, `/tx/:id`, `/batches/:index`, `/accounts/:G`
-2. **Flash Bridge (user dapp)** — done: `/bridge` (deposit, pay, withdraw, claim)
+2. **Flash Bridge (user dapp)** — done: `/bridge` (classic XLM deposit, FXLM pay, auto-paid withdraw)
 3. **Account dashboard** — done: `/account` + global wallet in header
 4. **Developer console** — done: `/developers` (docs + API); planned: API keys / per-app metrics (Phase 2)
 
@@ -16,7 +16,7 @@ The backend exposes everything needed via JSON HTTP with open CORS. This documen
 
 - **Vite + React 19 + TypeScript + Tailwind 4**
 - Data: **polling** every 1–8 s (`useHealth` / `usePoll`). SSE `/v1/stream` is Phase 2
-- Wallet: **Stellar Wallets Kit** — Freighter, xBull, Albedo, Lobstr, Hana, Rabet. Needs `signTransaction` (L1) and `signMessage` (Flash payments, SEP-53; see [07-sdk-integration.md](07-sdk-integration.md))
+- Wallet: **Stellar Wallets Kit** — Freighter, xBull, Albedo, Lobstr, Hana, Rabet. Needs `signTransaction` (classic XLM onramp) and `signMessage` (Flash payments, SEP-53; see [07-sdk-integration.md](07-sdk-integration.md))
 - Stellar: `@stellar/stellar-sdk` + SDK from this repo (`@flash/sdk` Vite alias)
 - L1 health strip: `GET /v1/l1/history` (not a charting library)
 - Visual identity: black + gold (#FFD100) + violet accents, Stellar Lab–inspired layout
@@ -38,15 +38,14 @@ The backend exposes everything needed via JSON HTTP with open CORS. This documen
 Balances per token, nonce, history, L1 finality per tx.
 
 ### 3.4 Transaction `/tx/:id`
-Detail, batch link, finality; for withdrawals: Merkle proof + **Claim on L1** when `claimable`.
+Detail, batch link, finality; for withdrawals: status until XLM is paid (`proof.claimed`).
 
 ## 4. Bridge screens (`/bridge`)
 
 1. Connect wallet → `G…` address
-2. **Deposit**: token + amount → `buildDepositTx` → `signTransaction` → poll until FXLM balance updates (~5–10 s)
+2. **Deposit**: amount → classic XLM payment to `network.onramp.address` (Horizon) → sequencer locks in vault → poll until FXLM updates
 3. **Pay**: recipient, token, amount → SEP-53 sign → submit → show `latencyUs`
-4. **Withdraw**: burn FXLM → wait for challenge period → claim on L1 with Merkle proof
-5. Side-by-side L1 vs Flash balances
+4. **Withdraw**: burn FXLM → we claim after the challenge period and send XLM. No “Claim” button.
 
 ## 5. UX principles
 

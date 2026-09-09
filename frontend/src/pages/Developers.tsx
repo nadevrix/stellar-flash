@@ -42,7 +42,8 @@ const ENDPOINTS: [string, string, string][] = [
   ['GET', '/v1/batches?limit=', 'Batches with status and Stellar tx hash.'],
   ['GET', '/v1/batches/:i?data=1', 'One batch with tx data — replay it and check the root.'],
   ['GET', '/v1/tokens', 'Enabled token metadata (alias: /v1/assets).'],
-  ['GET', '/v1/withdrawals/:id/proof', 'Merkle proof to claim a withdrawal on L1.'],
+  ['GET', '/v1/withdrawals/:id/proof', 'Merkle proof; `claimed` once we have paid XLM on L1.'],
+  ['GET', '/v1/onramp?account=', 'Classic XLM payments we saw and locked in the vault.'],
   ['GET', '/v1/l1/history', 'Stellar RPC probe history.'],
 ];
 
@@ -152,22 +153,27 @@ const receipt = await flash.submitSigned({
 
           <Section id="in-out" title="Deposits and withdrawals">
             <p>
-              Entering and leaving are Stellar transactions — they are the only steps that wait for a
-              ledger. In practice a platform deposits its float once and its users never touch the L1.
+              Users send <strong className="text-ink">ordinary XLM</strong> (Horizon) to the sequencer
+              address in <code className="font-mono text-ink">GET /v1/health</code> → <code className="font-mono text-ink">network.onramp</code>.
+              We invoke <code className="font-mono text-ink">deposit</code> on the vault and credit FXLM.
+              Payments after that never touch Soroban RPC.
             </p>
-            <Code>{`// In: funds land in the flash-bridge contract, credited when the ledger closes.
-const depositTx = await flash.buildDepositTx({ server, from, token, amount: 100_000_000n });
+            <Code>{`// In: a classic payment. The sequencer locks XLM and credits FXLM.
+// Send native XLM to health.network.onramp.address (Horizon, not Soroban).
 
-// Out: burn on Flash, then claim on Stellar with the Merkle proof.
+// Out: burn on Flash. We claim the Merkle withdrawal and pay XLM back.
 const { id } = await flash.withdraw({ token, amount: 20_000_000n, l1Recipient: from });
-const proof  = await flash.getWithdrawalProof(id);
-if (proof.claimable) {
-  const claim = await flash.buildWithdrawClaimTx({ server, source: from, proof });
-}`}</Code>
+// Poll until proof.claimed === true — no buildWithdrawClaimTx in the wallet.
+
+// Advanced / watchtower: still possible to call the contract yourself.
+const depositTx = await flash.buildDepositTx({ server, from, token, amount: 100_000_000n });
+const claim = await flash.buildWithdrawClaimTx({ server, source: from, proof });`}</Code>
             <p>
               The contract also exposes <code className="font-mono text-ink">escape</code>, which the admin
               <strong className="text-ink"> cannot pause</strong>. If the sequencer disappeared, users still
               get their funds out — that property is what makes this infrastructure and not a custodian.
+              The onramp has a brief window where XLM sits on the operator account before it is locked;
+              once it is in the vault, the same Merkle / escape guarantees apply.
             </p>
           </Section>
 

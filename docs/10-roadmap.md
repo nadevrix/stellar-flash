@@ -6,7 +6,7 @@
 - Contract, protocol, sequencer, SDK
 - **Testnet E2E in production** (Render): deposit, payments, batches, Merkle withdrawal
 - **Full web app**: Bridge, Account, Explorer, Developers ([08-frontend.md](08-frontend.md))
-- **15 TS tests** + deposit solvency / anti-infinite-mint fix
+- **16 TS tests** + deposit solvency / anti-infinite-mint fix + classic-XLM operator
 - Stellar Lab–style UI; public English documentation
 
 **Not yet (Phase 2+):**

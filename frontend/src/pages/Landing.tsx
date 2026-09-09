@@ -170,10 +170,10 @@ function Problem() {
 
 function How() {
   const steps = [
-    ['Deposit once', 'Send testnet XLM to the flash-bridge contract. You get FXLM 1:1, on the very same G… address. This is the only step that waits for a ledger.'],
+    ['Deposit once', 'Send ordinary testnet XLM — a normal Horizon payment, not a contract call. We lock it in the vault and credit FXLM 1:1 on the same G… address. You never pick a Soroban RPC.'],
     ['Pay instantly', 'Payments are signed by the user with SEP-53, so existing wallets work unchanged, and confirmed in milliseconds. They never touch the L1.'],
     ['Settle in batches', 'Flash publishes batches on Stellar with the full transaction data on-chain. When the network is degraded it waits and keeps confirming; when it recovers, the backlog goes out in order.'],
-    ['Withdraw whenever', 'Burn on Flash, prove with a Merkle branch, get paid by the contract. If we disappeared tomorrow the escape hatch still works — and no admin can pause it.'],
+    ['Withdraw whenever', 'Burn FXLM. After the challenge period we claim the vault and send XLM back to your Stellar account. If we disappeared tomorrow the escape hatch still works — and no admin can pause it.'],
   ];
   return (
     <section id="how" className="bg-sand">
@@ -207,8 +207,8 @@ function How() {
 
 function TryApp() {
   const apps = [
-    ['Bridge', '/bridge', 'Deposit testnet XLM, pay anyone instantly, withdraw back to Stellar. Connect Freighter on testnet.'],
-    ['Account', '/account', 'Your dashboard: Flash balances, payment history, links to claim withdrawals. Same G… address, no signup.'],
+    ['Bridge', '/bridge', 'Send testnet XLM like any payment. We credit FXLM. Pay anyone instantly. We send XLM back when you withdraw.'],
+    ['Account', '/account', 'Your dashboard: Flash balances, payment history. Same G… address, no signup.'],
     ['Explorer', '/explorer', 'Live feed of every payment, batch settlement on L1, Stellar network health probes.'],
     ['Developers', '/developers', 'SDK install, API reference, and examples/bounty-pay.ts for app integrations.'],
   ] as const;

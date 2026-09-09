@@ -5,8 +5,9 @@
  * `server.submitTransaction(...)` por `flash.transfer(...)` y obtiene confirmación en milisegundos,
  * usando la MISMA llave Stellar (G...) y los MISMOS tokens (XLM, USDC...). Sin wallet nueva.
  *
- * Los helpers L1 (`buildDepositTx`, `buildWithdrawClaimTx`) devuelven transacciones Stellar SIN
- * firmar para que la firme el usuario (Freighter, Keypair, etc.).
+ * Los helpers L1 (`buildDepositTx`, `buildWithdrawClaimTx`) son el camino directo al contrato.
+ * En el producto público el secuenciador hace esa parte: el usuario manda XLM clásico (Horizon)
+ * y paga en FXLM a milisegundos; el RPC de Soroban no sale del servidor.
  */
 import { Address, Contract, Keypair, TransactionBuilder, nativeToScVal, rpc, xdr } from '@stellar/stellar-sdk';
 import { domainSeparator, fromHex, signingMessage, signTx, toHex, type SignedTx, type TransferTx, type WithdrawTx } from '../../protocol/src/index.ts';
@@ -34,6 +35,17 @@ export interface FlashNetworkInfo {
   bridgeContractId: string;
   l1Mode: string;
   allowedTokens: string[];
+  sequencerAccount?: string | null;
+  onramp?: FlashOnrampInfo | null;
+}
+
+export interface FlashOnrampInfo {
+  enabled: boolean;
+  address: string;
+  horizonUrl: string;
+  minAmount: string;
+  token: string;
+  autoclaim: boolean;
 }
 
 export class FlashApiError extends Error {
@@ -231,6 +243,9 @@ export interface WithdrawalProofView {
   l1TxHash: string | null;
   commitLedger: number | null;
   claimable: boolean;
+  claimed?: boolean;
+  claimTxHash?: string | null;
+  autoclaim?: boolean;
 }
 
 export { Keypair } from '@stellar/stellar-sdk';

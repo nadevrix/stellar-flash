@@ -3,7 +3,7 @@
  *   node sequencer/src/index.ts            (L1_MODE=mock por defecto: demo local sin red)
  *   L1_MODE=rpc SEQUENCER_SECRET=S... BRIDGE_CONTRACT_ID=C... node sequencer/src/index.ts
  */
-import { Keypair } from '@stellar/stellar-sdk';
+import { Keypair, Networks } from '@stellar/stellar-sdk';
 import { domainSeparator } from '../../protocol/src/index.ts';
 import { createApiServer } from './api/server.ts';
 import { loadConfig } from './config.ts';
@@ -12,6 +12,7 @@ import { Store } from './db/store.ts';
 import { SettlementEngine, type EngineEvent } from './settlement/engine.ts';
 import { L1HealthMonitor } from './settlement/health.ts';
 import { MockL1Client, type L1Client } from './settlement/l1.ts';
+import { BridgeOperator, HorizonPaymentFeed } from './settlement/operator.ts';
 import { StellarRpcL1Client } from './settlement/rpc-client.ts';
 
 const cfg = loadConfig();
@@ -40,6 +41,30 @@ if (cfg.l1Mode === 'rpc') {
 
 const monitor = new L1HealthMonitor(l1, { healthyLedgerAgeSec: cfg.healthyLedgerAgeSec, downLedgerAgeSec: cfg.downLedgerAgeSec, surgeFeeStroops: cfg.surgeFeeStroops }, cfg.healthProbeTimeoutMs);
 const log = (ev: EngineEvent) => console.log(`${new Date(ev.at).toISOString()} [${ev.kind}] ${ev.message}`);
+
+const sequencerKp = cfg.sequencerSecret ? Keypair.fromSecret(cfg.sequencerSecret) : null;
+const nativeSac = cfg.networkPassphrase === Networks.PUBLIC
+  ? 'CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA'
+  : 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
+const onrampToken = cfg.allowedTokens[0] ?? nativeSac;
+const operator =
+  sequencerKp && onrampToken && (cfg.onrampEnabled || cfg.offrampAutoclaim)
+    ? new BridgeOperator({
+        store,
+        l1,
+        sequencer,
+        feed: new HorizonPaymentFeed(cfg.horizonUrl, sequencerKp.publicKey()),
+        sequencerAccount: sequencerKp.publicKey(),
+        token: onrampToken,
+        minAmount: BigInt(cfg.minOnrampStroops),
+        enabled: cfg.onrampEnabled,
+        autoclaim: cfg.offrampAutoclaim,
+        skipHistorical: true,
+        maxInclusionFeeStroops: cfg.maxInclusionFeeStroops,
+        log,
+      })
+    : undefined;
+
 const engine = new SettlementEngine(sequencer, l1, monitor, {
   sealIntervalMs: cfg.sealIntervalMs,
   challengePeriodLedgers: cfg.challengePeriodLedgers,
@@ -47,6 +72,7 @@ const engine = new SettlementEngine(sequencer, l1, monitor, {
   minInclusionFeeStroops: cfg.minInclusionFeeStroops,
   maxInclusionFeeStroops: cfg.maxInclusionFeeStroops,
   maxDeferMs: cfg.maxDeferMs,
+  operator,
 }, log);
 
 // En modo rpc, sincroniza el periodo de desafío y el índice de lote con el contrato.
@@ -73,11 +99,35 @@ if (cfg.l1Mode === 'rpc') {
 }
 
 engine.start(cfg.tickMs);
-const server = createApiServer({ sequencer, engine, info: { networkPassphrase: cfg.networkPassphrase, bridgeContractId: cfg.bridgeContractId, l1Mode: cfg.l1Mode, allowedTokens: cfg.allowedTokens, startedAt: Date.now() } });
+const onrampInfo =
+  operator && onrampToken
+    ? {
+        enabled: cfg.onrampEnabled,
+        address: operator.sequencerAccount,
+        horizonUrl: cfg.horizonUrl,
+        minAmount: String(cfg.minOnrampStroops),
+        token: onrampToken,
+        autoclaim: cfg.offrampAutoclaim,
+      }
+    : null;
+const server = createApiServer({
+  sequencer,
+  engine,
+  info: {
+    networkPassphrase: cfg.networkPassphrase,
+    bridgeContractId: cfg.bridgeContractId,
+    l1Mode: cfg.l1Mode,
+    allowedTokens: cfg.allowedTokens,
+    startedAt: Date.now(),
+    sequencerAccount: sequencerKp?.publicKey() ?? null,
+    onramp: onrampInfo,
+  },
+});
 server.listen(cfg.apiPort, cfg.apiHost, () => {
   console.log(`Stellar Flash sequencer · L1=${cfg.l1Mode} · API http://${cfg.apiHost}:${cfg.apiPort}/v1/health · DB ${cfg.dbPath}`);
   console.log(`estado: seq=${sequencer.currentSeq} cuentas=${sequencer.state.size} próximo lote=#${sequencer.nextBatch} raíz=${sequencer.state.rootHex().slice(0, 16)}…`);
   if (cfg.l1Mode === 'rpc') console.log(`rpc: ${cfg.rpcUrls.length} endpoint(s)`);
+  if (onrampInfo?.enabled) console.log(`onramp: paga XLM clásico a ${onrampInfo.address} (Horizon ${cfg.horizonUrl})`);
 });
 
 // Copia WAL-safe cada minuto. El lote publicado está en L1; el log aún no sellado solo vive aquí.

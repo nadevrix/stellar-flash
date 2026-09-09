@@ -12,6 +12,7 @@
  *  GET  /v1/withdrawals/:txId/proof        prueba Merkle para `withdraw` en el puente
  *  GET  /v1/proofs/balance?account=&token= prueba Merkle de saldo (escape hatch)
  *  GET  /v1/deposits
+ *  GET  /v1/onramp?account=                    pagos XLM clásicos vistos / metidos en la bóveda
  *  GET  /v1/stats
  *  GET  /v1/tokens · GET /v1/assets        metadatos de tokens habilitados
  *  GET  /v1/l1/history                     historial de salud L1
@@ -25,7 +26,22 @@ import type { BatchRecord } from '../db/store.ts';
 export interface ApiContext {
   sequencer: Sequencer;
   engine: SettlementEngine;
-  info: { networkPassphrase: string; bridgeContractId: string; l1Mode: string; allowedTokens: string[]; startedAt: number };
+  info: {
+    networkPassphrase: string;
+    bridgeContractId: string;
+    l1Mode: string;
+    allowedTokens: string[];
+    startedAt: number;
+    sequencerAccount?: string | null;
+    onramp?: {
+      enabled: boolean;
+      address: string;
+      horizonUrl: string;
+      minAmount: string;
+      token: string;
+      autoclaim: boolean;
+    } | null;
+  };
 }
 
 class HttpError extends Error {
@@ -123,7 +139,14 @@ export function createApiServer(ctx: ApiContext): Server {
         },
         l1: { status: h.status, reason: h.reason, latestLedger: h.latestLedger, ledgerAgeSec: h.ledgerAgeSec, feeP50: h.feeP50, feeP90: h.feeP90, surge: h.surge, endpoints: h.probes.map((p) => ({ endpoint: p.endpoint, ok: p.ok, latencyMs: p.latencyMs, latestLedger: p.latestLedger, error: p.error })) },
         settlement: engine.lastPolicyDecision,
-        network: { passphrase: info.networkPassphrase, bridgeContractId: info.bridgeContractId, l1Mode: info.l1Mode, allowedTokens: info.allowedTokens },
+        network: {
+          passphrase: info.networkPassphrase,
+          bridgeContractId: info.bridgeContractId,
+          l1Mode: info.l1Mode,
+          allowedTokens: info.allowedTokens,
+          sequencerAccount: info.sequencerAccount ?? null,
+          onramp: info.onramp ?? null,
+        },
       });
     }
 
@@ -198,7 +221,22 @@ export function createApiServer(ctx: ApiContext): Server {
     if (req.method === 'GET' && resource === 'withdrawals' && id && sub === 'proof') {
       const p = sequencer.withdrawalProof(id);
       if (!p) throw new HttpError(404, 'WITHDRAWAL_NOT_FOUND', 'retiro no encontrado o aún no incluido en un lote');
-      return json(res, 200, p);
+      const claim = sequencer.store.getOfframp(id);
+      return json(res, 200, {
+        ...p,
+        claimed: claim?.status === 'claimed',
+        claimTxHash: claim?.claimTxHash ?? null,
+        autoclaim: info.onramp?.autoclaim ?? false,
+      });
+    }
+
+    if (req.method === 'GET' && resource === 'onramp' && !id) {
+      const account = url.searchParams.get('account');
+      if (account && !isValidL2Address(account)) throw new HttpError(400, 'INVALID_ADDRESS', 'dirección inválida');
+      return json(res, 200, {
+        onramp: info.onramp ?? null,
+        payments: sequencer.store.listOnramp(account ?? undefined, Number(url.searchParams.get('limit') ?? 25)),
+      });
     }
 
     if (req.method === 'GET' && resource === 'proofs' && id === 'balance') {

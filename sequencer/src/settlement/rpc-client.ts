@@ -21,7 +21,7 @@ import {
 } from '@stellar/stellar-sdk';
 import { fromHex, toHex } from '../../../protocol/src/index.ts';
 import type { DepositEvent } from '../core/sequencer.ts';
-import { L1Error, type BridgeState, type CommitBatchArgs, type CommitResult, type EndpointProbe, type L1Client, type VerifiedDeposit } from './l1.ts';
+import { L1Error, type BridgeState, type ClaimWithdrawalArgs, type CommitBatchArgs, type CommitResult, type EndpointProbe, type L1Client, type VerifiedDeposit } from './l1.ts';
 
 /** Nombres de `Error` del contrato (contracts/flash-bridge/src/lib.rs) para logs legibles. */
 export const CONTRACT_ERRORS: Record<number, string> = {
@@ -207,22 +207,15 @@ export class StellarRpcL1Client implements L1Client {
     });
   }
 
-  async commitBatch(args: CommitBatchArgs, maxInclusionFeeStroops: number): Promise<CommitResult> {
+  /**
+   * Prepara, firma y espera inclusión de una invocación Soroban. El RPC es problema nuestro,
+   * no del usuario: failover + polling igual que `commit_batch`.
+   */
+  private async invoke(op: ReturnType<Contract['call']>, maxInclusionFeeStroops: number): Promise<CommitResult> {
     return this.withFailover(async (server) => {
       let prepared;
       try {
         const account = await server.getAccount(this.keypair.publicKey());
-        const op = new Contract(this.bridgeId).call(
-          'commit_batch',
-          nativeToScVal(args.batchIndex, { type: 'u64' }),
-          xdr.ScVal.scvBytes(Buffer.from(fromHex(args.prevStateRoot))),
-          xdr.ScVal.scvBytes(Buffer.from(fromHex(args.newStateRoot))),
-          xdr.ScVal.scvBytes(Buffer.from(fromHex(args.withdrawalsRoot))),
-          nativeToScVal(args.txCount, { type: 'u32' }),
-          nativeToScVal(args.depositCursor, { type: 'u64' }),
-          xdr.ScVal.scvBytes(Buffer.from(args.txData)),
-        );
-        // `fee` = puja de inclusión por operación; prepareTransaction suma la resource fee de Soroban.
         const tx = new TransactionBuilder(account, { fee: String(maxInclusionFeeStroops), networkPassphrase: this.passphrase })
           .addOperation(op)
           .setTimeout(this.txTimeoutSec)
@@ -230,7 +223,6 @@ export class StellarRpcL1Client implements L1Client {
         prepared = await server.prepareTransaction(tx);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        // Fallo de simulación = error determinista del contrato (p. ej. InvalidBatchIndex).
         if (/Error\(Contract|HostError|simulation/i.test(msg)) throw new L1Error('TX_FAILED', describeContractError(msg));
         throw new L1Error('NETWORK', msg);
       }
@@ -244,12 +236,10 @@ export class StellarRpcL1Client implements L1Client {
         throw new L1Error('NETWORK', e instanceof Error ? e.message : String(e));
       }
       if (sent.status === 'ERROR') {
-        // errorResult es un TransactionResult XDR (p. ej. txBadSeq, txInsufficientFee). Se guarda en base64 para diagnóstico.
         const detail = sent.errorResult ? sent.errorResult.toXDR('base64') : 'desconocido';
         throw new L1Error('TX_FAILED', `sendTransaction ERROR (TransactionResult XDR): ${detail}`);
       }
       if (sent.status === 'TRY_AGAIN_LATER') throw new L1Error('TRY_AGAIN_LATER', 'TRY_AGAIN_LATER: cola llena / surge pricing');
-      // PENDING o DUPLICATE → esperar inclusión
       const deadline = Date.now() + this.confirmTimeoutMs;
       while (Date.now() < deadline) {
         await sleep(this.pollIntervalMs);
@@ -257,7 +247,7 @@ export class StellarRpcL1Client implements L1Client {
         try {
           r = await server.getTransaction(hash);
         } catch {
-          continue; // fallo transitorio del RPC: seguimos esperando
+          continue;
         }
         if (r.status === rpc.Api.GetTransactionStatus.SUCCESS) return { txHash: hash, ledger: r.ledger };
         if (r.status === rpc.Api.GetTransactionStatus.FAILED) {
@@ -266,6 +256,51 @@ export class StellarRpcL1Client implements L1Client {
       }
       throw new L1Error('TIMEOUT', `tx ${hash} no se incluyó en ${this.confirmTimeoutMs / 1000}s (fee ${maxInclusionFeeStroops} insuficiente o red lenta)`);
     });
+  }
+
+  async commitBatch(args: CommitBatchArgs, maxInclusionFeeStroops: number): Promise<CommitResult> {
+    return this.invoke(
+      new Contract(this.bridgeId).call(
+        'commit_batch',
+        nativeToScVal(args.batchIndex, { type: 'u64' }),
+        xdr.ScVal.scvBytes(Buffer.from(fromHex(args.prevStateRoot))),
+        xdr.ScVal.scvBytes(Buffer.from(fromHex(args.newStateRoot))),
+        xdr.ScVal.scvBytes(Buffer.from(fromHex(args.withdrawalsRoot))),
+        nativeToScVal(args.txCount, { type: 'u32' }),
+        nativeToScVal(args.depositCursor, { type: 'u64' }),
+        xdr.ScVal.scvBytes(Buffer.from(args.txData)),
+      ),
+      maxInclusionFeeStroops,
+    );
+  }
+
+  async relayDeposit(token: string, amount: bigint, l2Recipient: string, maxInclusionFeeStroops: number): Promise<CommitResult> {
+    const from = this.keypair.publicKey();
+    return this.invoke(
+      new Contract(this.bridgeId).call(
+        'deposit',
+        new Address(from).toScVal(),
+        new Address(token).toScVal(),
+        nativeToScVal(amount, { type: 'i128' }),
+        new Address(l2Recipient).toScVal(),
+      ),
+      maxInclusionFeeStroops,
+    );
+  }
+
+  async claimWithdrawal(args: ClaimWithdrawalArgs, maxInclusionFeeStroops: number): Promise<CommitResult> {
+    return this.invoke(
+      new Contract(this.bridgeId).call(
+        'withdraw',
+        nativeToScVal(args.batchIndex, { type: 'u64' }),
+        nativeToScVal(args.wIndex, { type: 'u32' }),
+        new Address(args.recipient).toScVal(),
+        new Address(args.token).toScVal(),
+        nativeToScVal(args.amount, { type: 'i128' }),
+        xdr.ScVal.scvVec(args.proof.map((h) => xdr.ScVal.scvBytes(Buffer.from(fromHex(h))))),
+      ),
+      maxInclusionFeeStroops,
+    );
   }
 
   async fetchDeposits(fromLedger: number, limit: number): Promise<{ deposits: DepositEvent[]; latestLedger: number }> {

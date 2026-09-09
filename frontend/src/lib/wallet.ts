@@ -3,7 +3,7 @@
  *
  * Dos firmas distintas y conviene no confundirlas:
  *  - `signMessage`     → pagos dentro de Flash (SEP-53). No tocan la L1.
- *  - `signTransaction` → depósito y reclamo del retiro: transacciones de Stellar de verdad.
+ *  - `signTransaction` → depósito: un pago XLM clásico a la cuenta del secuenciador (Horizon, no Soroban).
  */
 import { Networks, StellarWalletsKit } from '@creit.tech/stellar-wallets-kit';
 import { FreighterModule } from '@creit.tech/stellar-wallets-kit/modules/freighter';
@@ -72,7 +72,7 @@ export async function signFlashMessage(message: Uint8Array, address: string): Pr
   return toHex(fromBase64(signedMessage));
 }
 
-/** Firma una transacción Stellar (XDR base64) para depositar o reclamar un retiro. */
+/** Firma una transacción Stellar (XDR base64): pago XLM clásico hacia el onramp. */
 export async function signStellarTx(xdr: string, address: string): Promise<string> {
   const { signedTxXdr } = await StellarWalletsKit.signTransaction(xdr, {
     address,

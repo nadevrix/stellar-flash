@@ -3,11 +3,12 @@
  *
  * En cada `tick`:
  *  1. Sondea la salud de la L1.
- *  2. Si la L1 responde, escanea depósitos nuevos del contrato y los acredita en L2.
- *  3. Sella un lote si hay txs pendientes y toca (por tiempo o por tamaño).
- *  4. Toma el lote sellado más antiguo (los commits son estrictamente secuenciales) y aplica la
- *     política: COMMIT (publica), DEFER (espera un poco), HOLD (L1 caída).
- *  5. Marca como finalizados los lotes cuyo periodo de desafío ya pasó.
+ *  2. Si la L1 responde, escanea depósitos del contrato y los acredita en L2.
+ *  3. El operador mete en la bóveda los XLM clásicos que hayan llegado a nuestra cuenta.
+ *  4. Sella un lote si hay txs pendientes y toca (por tiempo o por tamaño).
+ *  5. Toma el lote sellado más antiguo y aplica la política: COMMIT / DEFER / HOLD.
+ *  6. Marca como finalizados los lotes cuyo periodo de desafío ya pasó.
+ *  7. Reclama en L1 los retiros finalizados (el usuario no toca Soroban).
  *
  * Todo error de L1 se registra en el lote (attempts/lastError) y se reintenta con backoff.
  * La L2 nunca se detiene por culpa de la L1.
@@ -16,6 +17,7 @@ import type { DepositEvent, Sequencer } from '../core/sequencer.ts';
 import type { Store } from '../db/store.ts';
 import { L1HealthMonitor, type HealthSnapshot } from './health.ts';
 import { L1Error, type L1Client } from './l1.ts';
+import type { BridgeOperator } from './operator.ts';
 import { decideSettlement, type PolicyConfig, type SettlementDecision } from './policy.ts';
 
 export interface EngineConfig extends PolicyConfig {
@@ -25,11 +27,12 @@ export interface EngineConfig extends PolicyConfig {
   depositBatchLimit?: number;
   /** Cada cuánto se comprueba que lo emitido sigue respaldado por la bóveda (ms). */
   solvencyIntervalMs?: number;
+  operator?: BridgeOperator;
 }
 
 export interface EngineEvent {
   at: number;
-  kind: 'health' | 'seal' | 'commit' | 'commit_failed' | 'defer' | 'hold' | 'finalized' | 'deposit' | 'deposit_rejected' | 'insolvency' | 'error';
+  kind: 'health' | 'seal' | 'commit' | 'commit_failed' | 'defer' | 'hold' | 'finalized' | 'deposit' | 'deposit_rejected' | 'insolvency' | 'error' | 'onramp' | 'offramp';
   message: string;
   data?: Record<string, unknown>;
 }
@@ -92,6 +95,11 @@ export class SettlementEngine {
     try {
       const health = await this.monitor.probe(now);
       if (health.status !== 'DOWN' && !this.halted) {
+        try {
+          await this.cfg.operator?.ingest();
+        } catch (e) {
+          this.log({ at: Date.now(), kind: 'error', message: `onramp: ${e instanceof Error ? e.message : String(e)}` });
+        }
         await this.scanDeposits();
         // La solvencia se comprueba cada `solvencyIntervalMs`: es una lectura a L1 por token,
         // no hace falta en cada tick.
@@ -109,6 +117,13 @@ export class SettlementEngine {
         await this.settleNext(health, now);
       }
       this.finalize(health, now);
+      if (health.status !== 'DOWN' && !this.halted) {
+        try {
+          await this.cfg.operator?.claim();
+        } catch (e) {
+          this.log({ at: Date.now(), kind: 'error', message: `offramp: ${e instanceof Error ? e.message : String(e)}` });
+        }
+      }
       return health;
     } finally {
       this.running = false;

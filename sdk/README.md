@@ -57,14 +57,16 @@ Enséñalos siempre los dos: es lo que da confianza.
 
 ## Depositar y retirar
 
-```ts
-// Entrar: transacción de Stellar; el saldo aparece en Flash cuando el ledger cierra.
-const deposit = await flash.buildDepositTx({ server, from, token, amount: 100_000_000n });
+En el producto público el usuario **no** llama a Soroban. Manda XLM clásico a
+`health.network.onramp.address`; nosotros lo metemos en la bóveda y acreditamos FXLM.
+Al salir, quemas FXLM y nosotros pagamos el XLM (`proof.claimed`).
 
-// Salir: se quema en Flash y se reclama en L1 con la prueba Merkle, pasado el periodo de desafío.
+```ts
+// Camino avanzado / watchtower: hablar con el contrato a mano.
+const deposit = await flash.buildDepositTx({ server, from, token, amount: 100_000_000n });
 const { id } = await flash.withdraw({ token, amount: 20_000_000n, l1Recipient: from });
 const proof = await flash.getWithdrawalProof(id);
-if (proof.claimable) await flash.buildWithdrawClaimTx({ server, source: from, proof });
+if (proof.claimable && !proof.claimed) await flash.buildWithdrawClaimTx({ server, source: from, proof });
 ```
 
 El contrato tiene además `escape`, que **el administrador no puede pausar**: si el secuenciador

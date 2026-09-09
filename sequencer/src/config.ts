@@ -43,6 +43,14 @@ export interface SequencerConfig {
   challengePeriodLedgers: number;
   /** Ledger desde el que empezar a escanear depósitos si no hay estado previo. */
   depositScanStartLedger: number;
+  /** URL de Horizon (pagos clásicos). Vacío = se infiere de la passphrase. */
+  horizonUrl: string;
+  /** Recibir XLM clásico y depositarlo nosotros en el contrato. */
+  onrampEnabled: boolean;
+  /** Reclamar retiros finalizados en L1 para que el usuario no toque Soroban. */
+  offrampAutoclaim: boolean;
+  /** Mínimo de un pago onramp (stroops). Por debajo se ignora. */
+  minOnrampStroops: number;
 }
 
 const env = (k: string, d?: string): string | undefined => process.env[k] ?? d;
@@ -53,6 +61,13 @@ const num = (k: string, d: number): number => {
   if (!Number.isFinite(n)) throw new Error(`variable ${k} debe ser numérica`);
   return n;
 };
+const flag = (k: string, d: boolean): boolean => {
+  const v = process.env[k];
+  if (v === undefined || v === '') return d;
+  return v === '1' || v.toLowerCase() === 'true';
+};
+const defaultHorizon = (passphrase: string): string =>
+  passphrase === Networks.PUBLIC ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
 
 export function loadConfig(overrides: Partial<SequencerConfig> = {}): SequencerConfig {
   const onPaaS = process.env.PORT !== undefined && process.env.PORT !== '';
@@ -82,6 +97,10 @@ export function loadConfig(overrides: Partial<SequencerConfig> = {}): SequencerC
     maxDeferMs: num('MAX_DEFER_MS', 60_000),
     challengePeriodLedgers: num('CHALLENGE_PERIOD_LEDGERS', 20),
     depositScanStartLedger: num('DEPOSIT_SCAN_START_LEDGER', 0),
+    horizonUrl: env('HORIZON_URL', defaultHorizon(env('NETWORK_PASSPHRASE', Networks.TESTNET)!))!,
+    onrampEnabled: flag('ONRAMP_ENABLED', l1Mode === 'rpc'),
+    offrampAutoclaim: flag('OFFRAMP_AUTOCLAIM', l1Mode === 'rpc'),
+    minOnrampStroops: num('MIN_ONRAMP_STROOPS', 10_000),
     ...overrides,
   };
   if (cfg.l1Mode === 'rpc' && !cfg.sequencerSecret) throw new Error('SEQUENCER_SECRET es obligatorio en L1_MODE=rpc');

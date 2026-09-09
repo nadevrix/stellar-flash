@@ -70,7 +70,7 @@ export function Account() {
         <Card className="p-6">
           <div className="text-sm font-medium text-ink">Quick actions</div>
           <ul className="mt-3 space-y-2 text-sm">
-            <li><Link to="/bridge" className="text-lab-purple underline">Bridge → deposit, pay, withdraw</Link></li>
+            <li><Link to="/bridge" className="text-lab-purple underline">Bridge → send XLM, pay in FXLM</Link></li>
             <li><Link to="/developers" className="text-lab-purple underline">API explorer → SDK</Link></li>
             <li><a href={`${SEQUENCER_URL}/v1/accounts/${address}`} target="_blank" rel="noreferrer" className="font-mono text-muted underline">Raw JSON</a></li>
           </ul>

@@ -21,6 +21,14 @@ export const toStroops = (s: string): bigint => {
   return BigInt(Math.round(n * 1e7));
 };
 
+export const toHorizonAmount = (s: string): string => {
+  const stroops = toStroops(s);
+  const whole = stroops / 10_000_000n;
+  const frac = stroops % 10_000_000n;
+  if (frac === 0n) return whole.toString();
+  return `${whole}.${frac.toString().padStart(7, '0').replace(/0+$/, '')}`;
+};
+
 export const EXPERT = {
   tx: (h: string) => `https://stellar.expert/explorer/testnet/tx/${h}`,
   contract: (id: string) => `https://stellar.expert/explorer/testnet/contract/${id}`,

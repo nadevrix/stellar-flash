@@ -10,6 +10,7 @@ import { Store } from './db/store.ts';
 import { SettlementEngine, type EngineEvent } from './settlement/engine.ts';
 import { L1HealthMonitor, evaluateHealth, type HealthSnapshot } from './settlement/health.ts';
 import { MockL1Client } from './settlement/l1.ts';
+import { BridgeOperator, MockPaymentFeed, parseStroops } from './settlement/operator.ts';
 import { decideSettlement } from './settlement/policy.ts';
 import { createApiServer } from './api/server.ts';
 
@@ -23,9 +24,9 @@ function newSequencer(store = new Store(':memory:')) {
   return Sequencer.open({ domain: DOMAIN, store, maxBatchBytes: 60_000, maxBatchTxs: 250, snapshotEvery: 3 });
 }
 
-function engineWith(seqr: Sequencer, l1: MockL1Client, log: EngineEvent[] = []) {
+function engineWith(seqr: Sequencer, l1: MockL1Client, log: EngineEvent[] = [], operator?: BridgeOperator) {
   const monitor = new L1HealthMonitor(l1, TH, 1_000);
-  const engine = new SettlementEngine(seqr, l1, monitor, { ...POLICY, sealIntervalMs: 0, challengePeriodLedgers: 20, depositScanStartLedger: 0 }, (e) => log.push(e));
+  const engine = new SettlementEngine(seqr, l1, monitor, { ...POLICY, sealIntervalMs: 0, challengePeriodLedgers: 20, depositScanStartLedger: 0, operator }, (e) => log.push(e));
   return { engine, monitor, log };
 }
 
@@ -262,6 +263,7 @@ test('API HTTP: health, submit, cuenta, lote y prueba de retiro', async () => {
     const h = await get('/health');
     assert.equal(h.status, 200);
     assert.equal(h.body.l1.status, 'HEALTHY');
+    assert.equal(h.body.network.onramp, null);
 
     const nonce = await get(`/accounts/${alice.publicKey()}/nonce?token=${TOKEN}`);
     assert.equal(nonce.body.nonce, '0');
@@ -329,6 +331,10 @@ test('API HTTP: health, submit, cuenta, lote y prueba de retiro', async () => {
     assert.equal(assets.status, 200);
     assert.deepEqual(assets.body.tokens, tokens.body.tokens);
 
+    const onramp = await get('/onramp');
+    assert.equal(onramp.status, 200);
+    assert.equal(onramp.body.onramp, null);
+
     assert.equal((await get('/nope')).status, 404);
   } finally {
     server.close();
@@ -376,6 +382,69 @@ test('seguridad: un RPC comprometido no puede acuñar FXLM sin respaldo', async 
   assert.equal(breaches.length, 1, 'detecta que se emitió más de lo que hay en la bóveda');
   assert.equal(breaches[0]!.vault, 10_000n);
   assert.equal(engine.halted, true, 'el secuenciador se detiene solo');
+});
+
+test('operador: XLM clásico → FXLM, y el retiro se reclama sin que el usuario toque Soroban', async () => {
+  assert.equal(parseStroops('10.5'), 105_000_000n);
+  assert.equal(parseStroops('0.0000001'), 1n);
+
+  const seqKp = Keypair.random();
+  const alice = Keypair.random();
+  const bob = Keypair.random();
+  const store = new Store(':memory:');
+  const seqr = newSequencer(store);
+  const l1 = new MockL1Client({ challengePeriodLedgers: 5, sequencerAccount: seqKp.publicKey() });
+  const feed = new MockPaymentFeed();
+  const log: EngineEvent[] = [];
+  const operator = new BridgeOperator({
+    store,
+    l1,
+    sequencer: seqr,
+    feed,
+    sequencerAccount: seqKp.publicKey(),
+    token: TOKEN,
+    minAmount: 1n,
+    enabled: true,
+    autoclaim: true,
+    skipHistorical: false,
+    maxInclusionFeeStroops: 1_000,
+    log: (e) => log.push(e as EngineEvent),
+  });
+  const monitor = new L1HealthMonitor(l1, TH, 1_000);
+  const engine = new SettlementEngine(
+    seqr,
+    l1,
+    monitor,
+    { ...POLICY, sealIntervalMs: 0, challengePeriodLedgers: 5, depositScanStartLedger: 0, operator },
+    (e) => log.push(e),
+  );
+
+  feed.push({ id: 'pay-1', hash: 'ab'.repeat(32), from: alice.publicKey(), amount: 10_000n, cursor: 'c1' });
+  await engine.tick();
+  assert.equal(seqr.state.get(alice.publicKey(), TOKEN).balance, 10_000n, 'FXLM acreditado tras el pago clásico');
+  assert.equal(store.listOnramp(alice.publicKey())[0]?.status, 'deposited');
+  assert.equal(l1.recorded.get(0n)?.l2Recipient, alice.publicKey());
+  assert.equal(l1.recorded.get(0n)?.from, seqKp.publicKey(), 'el secuenciador es quien deposita en el contrato');
+
+  // El mismo pago no se mete dos veces en la bóveda.
+  const vaultAfter = await l1.getVaultBalance(TOKEN);
+  feed.push({ id: 'pay-1', hash: 'ab'.repeat(32), from: alice.publicKey(), amount: 10_000n, cursor: 'c1' });
+  await engine.tick();
+  assert.equal(await l1.getVaultBalance(TOKEN), vaultAfter);
+  assert.equal(seqr.state.get(alice.publicKey(), TOKEN).balance, 10_000n);
+
+  seqr.submit(signTx({ type: 'transfer', from: alice.publicKey(), to: bob.publicKey(), token: TOKEN, amount: 4_000n, nonce: 0n }, alice, DOMAIN));
+  seqr.submit(signTx({ type: 'withdraw', from: bob.publicKey(), token: TOKEN, amount: 1_000n, nonce: 0n, l1Recipient: bob.publicKey() }, bob, DOMAIN));
+  await engine.tick();
+  l1.advanceLedgers(5);
+  await engine.tick();
+
+  assert.equal(l1.claimed.get(TOKEN), 1_000n, 'el XLM salió de la bóveda hacia Bob');
+  const w = store.withdrawalsForBatch(1n)[0] ?? store.withdrawalsForBatch(0n)[0];
+  assert.ok(w);
+  assert.equal(store.getOfframp(w.txId)?.status, 'claimed');
+  assert.ok(log.some((e) => e.kind === 'onramp'));
+  assert.ok(log.some((e) => e.kind === 'offramp'));
 });
 
 test('sqlite: backup WAL-safe a fichero', async () => {

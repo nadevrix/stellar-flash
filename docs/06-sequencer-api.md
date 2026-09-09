@@ -26,7 +26,7 @@ Node type-stripping constraints: no `enum`, no `namespace`, no parameter propert
 | `protocol/src/state.ts` | `FlashState`, `replayBatch` |
 | `sequencer/src/core/sequencer.ts` | `open`, `submit`, `ingestDeposit`, `sealBatch`, proofs |
 | `sequencer/src/db/store.ts` | SQLite persistence |
-| `sequencer/src/settlement/` | L1 client, health, policy, engine, RPC client |
+| `sequencer/src/settlement/` | L1 client, health, policy, engine, RPC client, onramp/offramp operator |
 | `sequencer/src/api/server.ts` | HTTP JSON API |
 | `sequencer/src/config.ts` | environment variables (see `.env.example`) |
 
@@ -42,7 +42,8 @@ All responses are JSON; large integers are strings. CORS is open (`*`) for the w
 | `POST /v1/transactions` | Submit signed `transfer` or `withdraw` → receipt with `latencyUs` |
 | `GET /v1/transactions/:id` | Tx detail + L1 finality |
 | `GET /v1/batches?limit&offset` · `GET /v1/batches/:i?data=1` | Batch list/detail (base64 `txData` if `data=1`) |
-| `GET /v1/withdrawals/:txId/proof` | Merkle proof for L1 claim |
+| `GET /v1/withdrawals/:txId/proof` | Merkle proof; `claimed` / `claimTxHash` after we pay XLM |
+| `GET /v1/onramp?account=` | Classic XLM payments seen and locked in the vault |
 | `GET /v1/proofs/balance?account&token` | Balance proof for escape hatch |
 | `GET /v1/tokens` | Token metadata (symbol) |
 | `GET /v1/stats` | Throughput and latency stats |
