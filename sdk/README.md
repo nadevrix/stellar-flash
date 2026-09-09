@@ -37,13 +37,14 @@ sin cambios. Si el cliente no tiene la llave (una dapp en el navegador), pide el
 la firma:
 
 ```ts
-const { message, tx } = await flash.signingMessage({
+const { messageHex, tx } = await flash.signingMessage({
   type: 'transfer', from: userAddress, to, token, amount: 25_000_000n,
 });
 
-const signature = await wallet.signMessage(message); // Freighter, xBull, Lobstr…
+// Freighter only accepts a UTF-8 string — pass the hex of domain||body.
+const signature = await wallet.signMessage(messageHex);
 
-await flash.submitSigned({ ...tx, signature: Buffer.from(signature).toString('hex') });
+await flash.submitSigned({ ...tx, signature });
 ```
 
 ## Dos niveles de finalidad

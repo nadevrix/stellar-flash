@@ -140,14 +140,15 @@ export class FlashClient {
 
   /**
    * Prepara un pago para que lo firme la wallet del usuario (Freighter, xBull, Lobstr…).
-   * Devuelve los bytes exactos que hay que pasar a `signMessage` (SEP-53) y la tx sin firma;
-   * añade la firma en hex y envíala con `submitSigned`. No requiere keypair.
+   * `message` son los bytes canónicos (`domain || body`). Las extensiones que solo aceptan
+   * un string UTF-8 (Freighter) deben firmar `messageHex`. Añade la firma en hex y envía
+   * con `submitSigned`. No requiere keypair.
    */
   async signingMessage(
     p:
       | { type: 'transfer'; from?: string; to: string; token: string; amount: bigint; nonce?: bigint }
       | { type: 'withdraw'; from?: string; token: string; amount: bigint; l1Recipient?: string; nonce?: bigint },
-  ): Promise<{ message: Uint8Array; tx: Record<string, unknown> }> {
+  ): Promise<{ message: Uint8Array; messageHex: string; tx: Record<string, unknown> }> {
     const from = p.from ?? this.keypair?.publicKey();
     if (!from) throw new Error('signingMessage necesita `from` o un keypair en el cliente');
     const nonce = p.nonce ?? (await this.getNonce(from, p.token));
@@ -160,7 +161,7 @@ export class FlashClient {
       unsigned.type === 'transfer'
         ? { type: 'transfer', from, to: unsigned.to, token: unsigned.token, amount: unsigned.amount.toString(), nonce: nonce.toString() }
         : { type: 'withdraw', from, token: unsigned.token, amount: unsigned.amount.toString(), nonce: nonce.toString(), l1Recipient: unsigned.l1Recipient };
-    return { message, tx };
+    return { message, messageHex: toHex(message), tx };
   }
 
   async submitSigned(txJson: Record<string, unknown>): Promise<FlashReceipt> {

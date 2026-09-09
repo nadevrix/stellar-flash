@@ -138,17 +138,14 @@ receipt.finality;   // { l2: 'instant', l1: 'pending' }`}</Code>
               message, have the wallet sign it, and submit.
             </p>
             <Code>{`// No keypair needed on the client.
-const { message, tx } = await flash.signingMessage({
+const { messageHex, tx } = await flash.signingMessage({
   type: 'transfer', from: userAddress, to, token, amount: 25_000_000n,
 });
 
-// \`message\` are the exact bytes to sign. Any SEP-53 wallet does this.
-const signature = await wallet.signMessage(message);   // Freighter, xBull, Lobstr…
+// Freighter only accepts a UTF-8 string — pass the hex of domain||body.
+const signature = await wallet.signMessage(messageHex);
 
-const receipt = await flash.submitSigned({
-  ...tx,
-  signature: Buffer.from(signature).toString('hex'),
-});`}</Code>
+const receipt = await flash.submitSigned({ ...tx, signature });`}</Code>
           </Section>
 
           <Section id="in-out" title="Deposits and withdrawals">

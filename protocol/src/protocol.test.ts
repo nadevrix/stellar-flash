@@ -83,9 +83,16 @@ test('tx: firma, verificación, codificación y roundtrip de lote', () => {
   const to = Keypair.random().publicKey();
   const tx = signTx({ type: 'transfer', from: kp.publicKey(), to, token: TOKEN, amount: 1_000n, nonce: 0n }, kp, DOMAIN);
   assert.ok(verifyTxSignature(tx, DOMAIN));
-  // Compatibilidad SEP-53: una wallet que firme `signingMessage` con signMessage produce la misma firma
+  // Compatibilidad SEP-53: una wallet que firme los bytes de `signingMessage` produce la misma firma
   const walletSig = new Uint8Array(kp.signMessage(Buffer.from(signingMessage(tx, DOMAIN))));
   assert.deepEqual(walletSig, tx.signature);
+  // Freighter / kit: solo firman un string UTF-8 (hex o Base64 de esos bytes)
+  const rawMsg = signingMessage(tx, DOMAIN);
+  const hexSig = new Uint8Array(kp.signMessage(toHex(rawMsg)));
+  const b64Sig = new Uint8Array(kp.signMessage(Buffer.from(rawMsg).toString('base64')));
+  assert.ok(verifyTxSignature({ ...tx, signature: hexSig }, DOMAIN));
+  assert.ok(verifyTxSignature({ ...tx, signature: b64Sig }, DOMAIN));
+  assert.ok(!verifyTxSignature({ ...tx, amount: 1_001n, signature: hexSig }, DOMAIN));
   // Otra red/otro puente → la firma no vale (no hay replay cross-chain)
   const otherDomain = domainSeparator({ networkPassphrase: Networks.PUBLIC, bridgeContractId: BRIDGE });
   assert.ok(!verifyTxSignature(tx, otherDomain));

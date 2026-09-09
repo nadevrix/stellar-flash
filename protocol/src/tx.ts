@@ -10,6 +10,8 @@
  *   domain  = sha256("stellar-flash-v0" || network_passphrase || xdr(bridge_contract))
  * El dominio liga la firma a una red y a un despliegue del puente (sin replay entre redes/instancias),
  * y el prefijo SEP-53 garantiza que una firma de Flash jamás se confunde con una tx Stellar.
+ * Las extensiones que solo firman strings UTF-8 (Freighter) firman el hex o el Base64 de `message`;
+ * la verificación acepta esas formas además de los bytes crudos.
  *
  * Codificación de lote (data availability publicada en L1 dentro de `commit_batch.tx_data`):
  *   u32 count || repeat(u16 len || tx_bytes)
@@ -118,8 +120,12 @@ export function txBody(tx: L2Tx): Uint8Array {
 export const SEP53_PREFIX: Uint8Array = utf8('Stellar Signed Message:\n');
 
 /**
- * Mensaje que firma el usuario (bytes): `domain || body`. Una wallet que implemente SEP-53
- * (`keypair.signMessage(bytes)`, Freighter `signMessage`) produce exactamente la firma que Flash espera.
+ * Mensaje canónico (bytes): `domain || body`.
+ *
+ * Wallets con API de bytes (`Keypair.signMessage(Uint8Array)`) firman esto tal cual.
+ * Freighter y el Stellar Wallets Kit solo aceptan un string UTF-8: hay que pasar
+ * `toHex(signingMessage(...))` (o, por compatibilidad, el Base64 de esos bytes).
+ * `verifyTxSignature` acepta las tres formas.
  */
 export function signingMessage(tx: SignedTx | Omit<SignedTx, 'signature'>, domain: Uint8Array): Uint8Array {
   return concat(domain, txBody({ ...tx, signature: new Uint8Array(64) } as SignedTx));
@@ -128,6 +134,13 @@ export function signingMessage(tx: SignedTx | Omit<SignedTx, 'signature'>, domai
 /** Digest firmado con ed25519 según SEP-53: sha256("Stellar Signed Message:\n" || domain || body). */
 export function signingPayload(tx: SignedTx | Omit<SignedTx, 'signature'>, domain: Uint8Array): Uint8Array {
   return sha256(SEP53_PREFIX, signingMessage(tx, domain));
+}
+
+/** Base64 estándar de bytes arbitrarios, sin `Buffer` (el protocolo corre también en el navegador). */
+function bytesToStdBase64(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
+  return btoa(bin);
 }
 
 export function signTx<T extends Omit<TransferTx, 'signature'> | Omit<WithdrawTx, 'signature'>>(
@@ -144,7 +157,17 @@ export function verifyTxSignature(tx: SignedTx, domain: Uint8Array): boolean {
   if (!isValidL2Address(tx.from) || !tx.from.startsWith('G')) return false; // solo cuentas ed25519 firman
   if (tx.signature.length !== 64) return false;
   try {
-    return Keypair.fromPublicKey(tx.from).verify(Buffer.from(signingPayload(tx, domain)), Buffer.from(tx.signature));
+    const kp = Keypair.fromPublicKey(tx.from);
+    const sig = Buffer.from(tx.signature);
+    const raw = signingMessage(tx, domain);
+    // 1) bytes crudos — SDK / scripts con Keypair
+    // 2) hex UTF-8 — Freighter, xBull, Lobstr (`signMessage` solo acepta string)
+    // 3) Base64 UTF-8 — lo que la dapp pública enviaba antes del arreglo
+    return (
+      kp.verifyMessage(raw, sig) ||
+      kp.verifyMessage(toHex(raw), sig) ||
+      kp.verifyMessage(bytesToStdBase64(raw), sig)
+    );
   } catch {
     return false;
   }

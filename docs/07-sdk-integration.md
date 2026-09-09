@@ -39,17 +39,17 @@ Errors: `FlashApiError { status, code, message, details }` — `INVALID_SIGNATUR
 
 ## 3. Wallet signing (Freighter, etc.) — SEP-53
 
-Flash signs `sha256("Stellar Signed Message:\n" || domain || body)` with ed25519 — **SEP-53**, supported by Stellar wallets.
+Flash signs `sha256("Stellar Signed Message:\n" || domain || body)` with ed25519 — **SEP-53**.
+`Keypair.signMessage` accepts those raw bytes. Browser wallets (Freighter, the kit) only accept a
+UTF-8 **string**, so pass `messageHex` (hex of `domain || body`). The sequencer accepts both.
 
 Frontend flow (no secret key exposure):
 ```ts
-import { signingMessage, txToJson, domainSeparator } from '@stellar-flash/protocol';
-const net = await flash.network();
-const domain = domainSeparator({ networkPassphrase: net.passphrase, bridgeContractId: net.bridgeContractId });
-const unsigned = { type: 'transfer', from, to, token, amount, nonce: await flash.getNonce(from, token) };
-const message = signingMessage(unsigned, domain);
-const signature = await wallet.signMessage(message, { address: from });
-await flash.submitSigned(txToJson({ ...unsigned, signature }));
+const { messageHex, tx } = await flash.signingMessage({
+  type: 'transfer', from, to, token, amount, nonce: await flash.getNonce(from, token),
+});
+const signature = await wallet.signMessage(messageHex, { address: from });
+await flash.submitSigned({ ...tx, signature });
 ```
 
 ## 4. Integration patterns
