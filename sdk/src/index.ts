@@ -73,7 +73,9 @@ export class FlashClient {
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await this.fetchFn(`${this.baseUrl}/v1${path}`, { ...init, headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) } });
+    const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) };
+    if (init?.body && !headers['content-type']) headers['content-type'] = 'application/json';
+    const res = await this.fetchFn(`${this.baseUrl}/v1${path}`, { ...init, headers });
     const body = (await res.json()) as { error?: { code: string; message: string; details?: unknown } } & T;
     if (!res.ok) throw new FlashApiError(res.status, body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? `HTTP ${res.status}`, body.error?.details);
     return body;

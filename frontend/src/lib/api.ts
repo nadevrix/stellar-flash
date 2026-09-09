@@ -17,7 +17,7 @@ export interface Health {
     reason: string; latestLedger: number; ledgerAgeSec: number;
     feeP50: number; feeP90: number; surge: boolean;
   };
-  network: { bridgeContractId: string; l1Mode: string; passphrase: string; allowedTokens?: string[]; sequencerAccount?: string | null; onramp?: { enabled: boolean; address: string; horizonUrl: string; minAmount: string; autoclaim: boolean } | null };
+  network: { bridgeContractId: string; l1Mode: string; passphrase: string; allowedTokens?: string[]; sequencerAccount?: string | null; onramp?: { enabled: boolean; address: string; horizonUrl: string; minAmount: string; token?: string; autoclaim: boolean } | null };
 }
 
 export async function fetchHealth(signal?: AbortSignal): Promise<Health> {

@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Asset, Horizon, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
 import { FlashApiError, FlashClient, type FlashOnrampInfo, type WithdrawalProofView } from '@flash/sdk';
+import { useHealth } from '../components/LiveStatus.tsx';
 import { Alert, BtnPrimary, BtnSecondary, Card, LabInput, PageHeader, Segmented, StatTile } from '../components/ui/Lab.tsx';
 import { useWallet } from '../context/WalletContext.tsx';
-import { SEQUENCER_URL } from '../lib/api.ts';
+import { SEQUENCER_URL, XLM_TESTNET, type Health } from '../lib/api.ts';
 import { EXPERT, fmtStroops, toHorizonAmount, toStroops } from '../lib/format.ts';
 import { signFlashMessage, signStellarTx } from '../lib/wallet.ts';
 
@@ -48,10 +49,25 @@ type Tab = 'deposit' | 'pay' | 'withdraw';
 type Pending = { id: string; amount: bigint; proof: WithdrawalProofView | null };
 type RunFn = (label: string, fn: () => Promise<string | void>) => Promise<void>;
 
+function onrampFromHealth(h: Health | null): FlashOnrampInfo | null {
+  if (!h) return null;
+  const raw = h.network.onramp;
+  const token = raw?.token ?? h.network.allowedTokens?.[0] ?? XLM_TESTNET;
+  if (raw?.enabled && raw.address?.startsWith('G')) {
+    return { enabled: true, address: raw.address, horizonUrl: raw.horizonUrl || HORIZON_FALLBACK, minAmount: raw.minAmount, token, autoclaim: raw.autoclaim };
+  }
+  const addr = h.network.sequencerAccount;
+  if (h.network.l1Mode === 'rpc' && addr?.startsWith('G')) {
+    return { enabled: true, address: addr, horizonUrl: HORIZON_FALLBACK, minAmount: '10000', token, autoclaim: true };
+  }
+  return null;
+}
+
 export function Bridge() {
   const { address, connect, connecting } = useWallet();
-  const [token, setToken] = useState<string | null>(null);
-  const [onramp, setOnramp] = useState<FlashOnrampInfo | null>(null);
+  const { health } = useHealth(4000);
+  const onramp = onrampFromHealth(health);
+  const token = onramp?.token ?? health?.network.allowedTokens?.[0] ?? XLM_TESTNET;
   const [flashBalance, setFlashBalance] = useState<bigint>(0n);
   const [l1Balance, setL1Balance] = useState<bigint | null>(null);
   const [balanceReady, setBalanceReady] = useState(false);
@@ -60,13 +76,6 @@ export function Bridge() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending[]>([]);
-
-  useEffect(() => {
-    void flash.health().then((h) => {
-      setToken(h.network.allowedTokens[0] ?? null);
-      setOnramp(h.network.onramp ?? null);
-    }).catch(() => { /* LiveStatus already shows sequencer down */ });
-  }, []);
 
   const refresh = useCallback(async () => {
     if (!address || !token) return;
@@ -155,7 +164,7 @@ export function Bridge() {
       {notice && <Alert tone="success">{notice}</Alert>}
 
       <Card className="mt-6 p-6">
-        {tab === 'deposit' && <Deposit address={address} token={token} onramp={onramp} flashBalance={flashBalance} busy={busy} run={run} />}
+        {tab === 'deposit' && <Deposit address={address} token={token} onramp={onramp} healthReady={health !== null} flashBalance={flashBalance} busy={busy} run={run} />}
         {tab === 'pay' && <Pay address={address} token={token} busy={busy} run={run} />}
         {tab === 'withdraw' && <Withdraw address={address} token={token} busy={busy} run={run} pending={pending} setPending={setPending} />}
       </Card>
@@ -180,10 +189,13 @@ function CopyAddr({ value }: { value: string }) {
   );
 }
 
-function Deposit({ address, token, onramp, flashBalance, busy, run }: {
-  address: string; token: string | null; onramp: FlashOnrampInfo | null; flashBalance: bigint; busy: string | null; run: RunFn;
+function Deposit({ address, token, onramp, healthReady, flashBalance, busy, run }: {
+  address: string; token: string; onramp: FlashOnrampInfo | null; healthReady: boolean; flashBalance: bigint; busy: string | null; run: RunFn;
 }) {
   const [amount, setAmount] = useState('');
+  if (!healthReady) {
+    return <p className="text-sm text-muted">Checking the sequencer…</p>;
+  }
   if (!onramp?.enabled || !onramp.address) {
     return (
       <p className="text-sm leading-relaxed text-muted">
@@ -197,7 +209,7 @@ function Deposit({ address, token, onramp, flashBalance, busy, run }: {
     <form className="space-y-5" onSubmit={(e) => {
       e.preventDefault();
       void run('deposit', async () => {
-        if (!token) throw new Error('Sequencer is not responding. Restart it on Render.');
+        if (!token) throw new Error('Sequencer is not responding.');
         const stroops = toStroops(amount);
         if (stroops < BigInt(onramp.minAmount)) {
           throw new Error(`Minimum deposit is ${fmtStroops(onramp.minAmount)} XLM.`);
