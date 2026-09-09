@@ -43,6 +43,7 @@ services:
       - key: NETWORK_PASSPHRASE
         value: Test SDF Network ; September 2015
       - key: RPC_URLS
+        # Si el servicio se creó a mano, esta env NO se aplica sola: pégala en el dashboard.
         value: https://soroban-testnet.stellar.org,https://stellar-soroban-testnet-public.nodies.app
       - key: ALLOWED_TOKENS
         value: CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC

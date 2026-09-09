@@ -88,7 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {/* Health mini */}
             <span className="hidden items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted md:inline-flex" title={error ?? undefined}>
               <span className={`h-1.5 w-1.5 rounded-full ${health?.l1.status === 'HEALTHY' ? 'bg-teal' : health ? 'bg-gold' : 'bg-warm pulse-dot'}`} />
-              {health ? health.l1.status.toLowerCase() : 'connecting…'}
+              {health ? health.l1.status.toLowerCase() : 'checking'}
             </span>
 
             {address ? (

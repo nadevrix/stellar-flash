@@ -32,17 +32,18 @@ function Section({ id, title, children }: { id: string; title: string; children:
 }
 
 const ENDPOINTS: [string, string, string][] = [
-  ['GET', '/v1/health', 'Estado de la L2 y de Stellar: semáforo, último ledger, fee p90, decisión de liquidación.'],
-  ['GET', '/v1/stats?window=60', 'txs/s, latencia p50/p99, lotes publicados y tiempo medio de sellado a L1.'],
-  ['GET', '/v1/transactions?limit=25', 'Últimos pagos de toda la L2.'],
-  ['GET', '/v1/transactions/:id', 'Un pago, con su lote y sus dos niveles de finalidad.'],
-  ['POST', '/v1/transactions', 'Enviar un pago firmado (SEP-53).'],
-  ['GET', '/v1/accounts/:G', 'Saldos por token, nonce e historial.'],
-  ['GET', '/v1/accounts/:G/nonce?token=', 'Siguiente nonce para firmar.'],
-  ['GET', '/v1/batches?limit=', 'Lotes, con estado y hash de la tx en Stellar.'],
-  ['GET', '/v1/batches/:i?data=1', 'Un lote con sus datos: permite re-ejecutarlo y verificar la raíz.'],
-  ['GET', '/v1/withdrawals/:id/proof', 'Prueba Merkle para reclamar un retiro en L1.'],
-  ['GET', '/v1/l1/history', 'Historial de sondas a Stellar.'],
+  ['GET', '/v1/health', 'L2 counters, Stellar health, last settlement decision, allowed tokens.'],
+  ['GET', '/v1/stats?window=60', 'txs/s, latency p50/p99, lifetime stats, batches published.'],
+  ['GET', '/v1/transactions?limit=25', 'Latest payments across the whole L2.'],
+  ['GET', '/v1/transactions/:id', 'One payment, its batch, and both finality levels.'],
+  ['POST', '/v1/transactions', 'Submit a SEP-53 signed payment.'],
+  ['GET', '/v1/accounts/:G', 'Balances, nonce, and history.'],
+  ['GET', '/v1/accounts/:G/nonce?token=', 'Next nonce for signing.'],
+  ['GET', '/v1/batches?limit=', 'Batches with status and Stellar tx hash.'],
+  ['GET', '/v1/batches/:i?data=1', 'One batch with tx data — replay it and check the root.'],
+  ['GET', '/v1/tokens', 'Enabled token metadata (alias: /v1/assets).'],
+  ['GET', '/v1/withdrawals/:id/proof', 'Merkle proof to claim a withdrawal on L1.'],
+  ['GET', '/v1/l1/history', 'Stellar RPC probe history.'],
 ];
 
 export function Developers() {
@@ -80,8 +81,14 @@ export function Developers() {
           </Section>
 
           <Section id="install" title="Install">
-            <p>The SDK is a thin client over the HTTP API. <code className="font-mono text-ink">@stellar/stellar-sdk</code> is a peer dependency, so your project keeps a single copy of it.</p>
-            <Code lang="bash">{`npm install ${PKG} @stellar/stellar-sdk`}</Code>
+            <p>
+              The SDK is <strong className="text-ink">not on npm yet</strong>. Clone the repo so you
+              run the same protocol as the sequencer. The published name will be{' '}
+              <code className="font-mono text-ink">{PKG}</code>.
+            </p>
+            <Code lang="bash">{`git clone ${GITHUB}
+cd stellar-flash && npm install
+# import { FlashClient } from './sdk/src/index.ts'`}</Code>
             <p className="text-ink/55">Works on the server and in the browser — the protocol has no Node-only dependencies, so your dapp can build the message the wallet signs instead of trusting a backend to hand it over.</p>
           </Section>
 
@@ -197,10 +204,11 @@ curl -s ${SEQUENCER_URL}/v1/batches/0?data=1 | jq`}</Code>
               <table className="w-full text-left text-sm">
                 <tbody className="divide-y divide-ink/8">
                   {[
-                    ['BAD_NONCE', 'Otro pago tuyo se adelantó. Relee el nonce y reintenta una vez.'],
-                    ['INSUFFICIENT_BALANCE', 'Saldo insuficiente en Flash para ese token.'],
-                    ['INVALID_SIGNATURE', 'La wallet firmó un mensaje distinto al que se envió.'],
-                    ['TOKEN_NOT_ALLOWED', 'Ese contrato de activo no está habilitado en este secuenciador.'],
+                    ['BAD_NONCE', 'Another payment of yours landed first. Re-read the nonce and retry once.'],
+                    ['INSUFFICIENT_BALANCE', 'Not enough Flash balance for that token.'],
+                    ['INVALID_SIGNATURE', 'The wallet signed a different message than the one submitted.'],
+                    ['TOKEN_NOT_ALLOWED', 'That asset contract is not enabled on this sequencer.'],
+                    ['SELF_TRANSFER', 'You cannot pay yourself. Use another G… address.'],
                   ].map(([code, desc]) => (
                     <tr key={code}>
                       <td className="whitespace-nowrap px-5 py-3 font-mono text-[13px] text-gold">{code}</td>

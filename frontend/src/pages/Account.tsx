@@ -23,7 +23,7 @@ export function Account() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg.includes('502') || msg.includes('Failed to fetch')
-        ? 'El secuenciador no responde (502). Reinicia stellar-flash-sequencer en Render.'
+        ? 'The sequencer is not responding (502). Restart stellar-flash-sequencer on Render.'
         : msg);
     }
   }, [address]);

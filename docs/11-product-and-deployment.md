@@ -151,15 +151,33 @@ Do **not** confuse with `stellar-flash` (Static) — that only redeploys the web
 
 - Developer dashboard with API keys and per-app metrics
 - `npm publish` of `stellar-flash-sdk`
-- In-browser batch replay verification
 - SSE `/v1/stream` for live updates
 - Postgres, webhooks, fraud proofs, ZK
+
+In-browser batch replay (`/batches/:i` → Verify from genesis) **ships** with the web app.
 
 See [10-roadmap.md](10-roadmap.md).
 
 ---
 
-## 10. Demo script (5 min)
+## 10. Testnet production checklist
+
+After every sequencer deploy:
+
+1. `GET /v1/health` → `l1Mode=rpc`, `status=HEALTHY`, bind log shows `0.0.0.0`
+2. `l1.endpoints` has **two** RPCs. If it shows one, paste `RPC_URLS` from `render.yaml` into the dashboard (Blueprint env is ignored on services created by hand)
+3. `GET /v1/tokens` and `GET /v1/assets` return the XLM SAC id (not 404)
+4. Logs contain `[db] backup cada 60s → /var/data/flash.db.bak`
+5. Smoke: `/bridge` deposit → pay another `G…` → withdraw → claim (~2 min challenge)
+6. Enable Render disk snapshots for `flash-data`
+
+Do **not** run `scripts/deploy-testnet.sh` against the live service: it deploys a **new** contract and desyncs the sequencer DB.
+
+Probe from a laptop: `npm run check:testnet`
+
+---
+
+## 11. Demo script (5 min)
 
 1. Show **Explorer** — live payments, ~6 ms latency, L1 health strip
 2. Open **Bridge** — connect Freighter testnet, deposit small XLM

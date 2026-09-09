@@ -15,10 +15,10 @@ The backend exposes everything needed via JSON HTTP with open CORS. This documen
 ## 2. Stack
 
 - **Vite + React 19 + TypeScript + Tailwind 4**
-- Data: **TanStack Query** with 1–2 s `refetchInterval` (SSE planned in Phase 2)
-- Wallet: **Stellar Wallets Kit** — Freighter, xBull, Albedo, Lobstr, Hana. Needs `signTransaction` (L1) and `signMessage` (Flash payments, SEP-53; see [07-sdk-integration.md](07-sdk-integration.md))
-- Stellar: `@stellar/stellar-sdk` + SDK from this repo
-- Charts: Recharts for latency, tx/s, L1 status over time
+- Data: **polling** every 1–8 s (`useHealth` / `usePoll`). SSE `/v1/stream` is Phase 2
+- Wallet: **Stellar Wallets Kit** — Freighter, xBull, Albedo, Lobstr, Hana, Rabet. Needs `signTransaction` (L1) and `signMessage` (Flash payments, SEP-53; see [07-sdk-integration.md](07-sdk-integration.md))
+- Stellar: `@stellar/stellar-sdk` + SDK from this repo (`@flash/sdk` Vite alias)
+- L1 health strip: `GET /v1/l1/history` (not a charting library)
 - Visual identity: black + gold (#FFD100) + violet accents, Stellar Lab–inspired layout
 
 ## 3. Explorer screens
@@ -32,7 +32,7 @@ The backend exposes everything needed via JSON HTTP with open CORS. This documen
 - Demo mode button (mock only): requires `POST /v1/admin/mock-l1` — not implemented yet
 
 ### 3.2 Batch `/batches/:index`
-`GET /v1/batches/:i?data=1`: headers, tx list (decode base64 `txData` with `decodeBatchData`), withdrawals with `wIndex`. **Verify batch** button: `replayBatch` in browser and compare roots — strongest trust argument.
+`GET /v1/batches/:i?data=1`: headers, decoded tx list, withdrawals with `wIndex`. **Verify from genesis** replays every batch up to this index in the browser (`replayBatch`) and compares roots — strongest trust argument.
 
 ### 3.3 Account `/accounts/:G`
 Balances per token, nonce, history, L1 finality per tx.
@@ -72,4 +72,4 @@ frontend/src/
   lib/            api client, format helpers, wallet context
 ```
 
-Note: `protocol/src/bytes.ts` uses `node:crypto`; for in-browser batch verification, add a browser build with `crypto.subtle` (Phase 2).
+Note: `protocol/src/bytes.ts` uses `@noble/hashes` (no `node:crypto`). Batch verification in `/batches/:i` runs in the browser.

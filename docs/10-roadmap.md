@@ -6,13 +6,12 @@
 - Contract, protocol, sequencer, SDK
 - **Testnet E2E in production** (Render): deposit, payments, batches, Merkle withdrawal
 - **Full web app**: Bridge, Account, Explorer, Developers ([08-frontend.md](08-frontend.md))
-- **14 TS tests** + deposit solvency / anti-infinite-mint fix
+- **15 TS tests** + deposit solvency / anti-infinite-mint fix
 - Stellar Lab–style UI; public English documentation
 
 **Not yet (Phase 2+):**
 - API keys, webhooks, Postgres, SSE
 - Fraud proofs, ZK, npm SDK publish
-- In-browser batch replay verification
 
 ### Phase 0 · Testnet end-to-end — **complete**
 See [11-product-and-deployment.md](11-product-and-deployment.md).
@@ -20,6 +19,7 @@ See [11-product-and-deployment.md](11-product-and-deployment.md).
 ### Phase 1 · Demonstrable MVP — **in progress / nearly done**
 - Done: Explorer + Bridge deployed on Render
 - Done: Landing + usable product
+- Done: In-browser batch replay (`/batches/:i`)
 - Planned: Reference bounty integration demo (script `examples/bounty-pay.ts` exists; recorded demo pending)
 - Done: English public documentation (Sep 2026)
 

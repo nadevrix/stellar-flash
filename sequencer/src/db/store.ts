@@ -7,7 +7,7 @@
  * Persistence schema — see docs/06-sequencer-api.md §4.
  */
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 export type BatchStatus = 'sealed' | 'committed' | 'finalized';
@@ -174,6 +174,15 @@ export class Store {
 
   close() {
     this.db.close();
+  }
+
+  /** Copia consistente a otro fichero (`serialize`, no depende de DatabaseSync.backup). */
+  async backup(dest: string): Promise<void> {
+    writeFileSync(dest, this.db.serialize());
+  }
+
+  countCommittedBatches(): number {
+    return Number((this.db.prepare("SELECT COUNT(*) AS c FROM batches WHERE committed_at IS NOT NULL").get() as Row).c);
   }
 
   transaction<T>(fn: () => T): T {

@@ -55,7 +55,7 @@ Requirements: Node ≥ 22.18, Rust + `wasm32v1-none` for the contract.
 - SDK (`FlashClient`) with SEP-53 wallet signing
 - Web app: landing, Bridge dapp, Account dashboard, live Explorer, developer docs
 - Testnet deployment on Render (sequencer + static frontend)
-- 14 automated tests + deposit solvency / anti-infinite-mint checks
+- 15 automated tests + deposit solvency / anti-infinite-mint checks
 
 ---
 

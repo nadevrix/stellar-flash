@@ -89,4 +89,4 @@ claim.sign(kp); await server.sendTransaction(claim);
 
 ## 6. npm publish (planned)
 
-Split `protocol/` and `sdk/` as `@stellar-flash/protocol` and `@stellar-flash/sdk` with ESM+CJS build (tsup). Browser build: replace `node:crypto` with `crypto.subtle` in `protocol/src/bytes.ts`.
+The protocol already runs in the browser (`@noble/hashes`, no `node:crypto` / `Buffer`). Split publish of `stellar-flash-sdk` is Phase 2. Until then, clone this repository and import from `sdk/src`.

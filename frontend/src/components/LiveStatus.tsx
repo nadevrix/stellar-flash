@@ -33,7 +33,7 @@ export function useHealth(intervalMs = 4000) {
 
 export function StatusPill({ health, onDark = false, compact = false }: { health: Health | null; onDark?: boolean; compact?: boolean }) {
   const tone = health ? TONE[health.l1.status] : null;
-  const label = tone?.label ?? 'connecting…';
+  const label = tone?.label ?? 'checking';
   return (
     <span className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-medium ${
       onDark ? 'border-white/12 bg-white/5' : 'border-ink/12 bg-white'}`}

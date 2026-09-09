@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Keypair, Networks } from '@stellar/stellar-sdk';
 import { FlashError, FlashState, decodeBatchData, domainSeparator, fromHex, replayBatch, signTx, stateLeaf, toHex, verifyProof, withdrawalLeaf } from '../../protocol/src/index.ts';
 import { Sequencer } from './core/sequencer.ts';
@@ -247,7 +250,7 @@ test('API HTTP: health, submit, cuenta, lote y prueba de retiro', async () => {
   l1.deposit(alice.publicKey(), TOKEN, 500n, alice.publicKey());
   await engine.tick();
 
-  const server = createApiServer({ sequencer: seqr, engine, info: { networkPassphrase: Networks.TESTNET, bridgeContractId: BRIDGE, l1Mode: 'mock', allowedTokens: [], startedAt: Date.now() } });
+  const server = createApiServer({ sequencer: seqr, engine, info: { networkPassphrase: Networks.TESTNET, bridgeContractId: BRIDGE, l1Mode: 'mock', allowedTokens: [TOKEN], startedAt: Date.now() } });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
   const port = (server.address() as { port: number }).port;
   const base = `http://127.0.0.1:${port}/v1`;
@@ -315,6 +318,16 @@ test('API HTTP: health, submit, cuenta, lote y prueba de retiro', async () => {
     assert.ok(stats.body.l2.latencyP50Us >= 0);
     assert.equal(stats.body.l1.batchesCommitted, 2, 'el del depósito y el de transferencia+retiro');
     assert.ok(stats.body.l1.avgSealToCommitMs !== null);
+    assert.ok(stats.body.l2.lifetime.txs >= 3);
+    assert.ok(stats.body.l2.lifetime.latencyP50Us > 0);
+
+    const tokens = await get('/tokens');
+    assert.equal(tokens.status, 200);
+    assert.equal(tokens.body.tokens[0].id, TOKEN);
+    assert.equal(tokens.body.tokens[0].symbol, 'XLM');
+    const assets = await get('/assets');
+    assert.equal(assets.status, 200);
+    assert.deepEqual(assets.body.tokens, tokens.body.tokens);
 
     assert.equal((await get('/nope')).status, 404);
   } finally {
@@ -363,4 +376,18 @@ test('seguridad: un RPC comprometido no puede acuñar FXLM sin respaldo', async 
   assert.equal(breaches.length, 1, 'detecta que se emitió más de lo que hay en la bóveda');
   assert.equal(breaches[0]!.vault, 10_000n);
   assert.equal(engine.halted, true, 'el secuenciador se detiene solo');
+});
+
+test('sqlite: backup WAL-safe a fichero', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'flash-'));
+  const src = join(dir, 'flash.db');
+  const dest = join(dir, 'flash.db.bak');
+  const store = new Store(src);
+  store.setMeta('hello', 'world');
+  await store.backup(dest);
+  store.close();
+  assert.equal(existsSync(dest), true);
+  const copy = new Store(dest);
+  assert.equal(copy.getMeta('hello'), 'world');
+  copy.close();
 });

@@ -10,6 +10,7 @@ export default defineConfig({
       // El SDK se consume desde el código fuente del repo, no desde npm: así la dapp y el
       // secuenciador comparten exactamente el mismo protocolo y no pueden desincronizarse.
       '@flash/sdk': fileURLToPath(new URL('../sdk/src/index.ts', import.meta.url)),
+      '@flash/protocol': fileURLToPath(new URL('../protocol/src/index.ts', import.meta.url)),
     },
   },
   define: {

@@ -17,24 +17,24 @@ const server = new rpc.Server(RPC_URL);
 async function submitSigned(signedXdr: string): Promise<string> {
   const tx = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
   const sent = await server.sendTransaction(tx);
-  if (sent.status === 'ERROR') throw new Error(`Stellar rechazó la transacción: ${sent.errorResult?.toXDR('base64') ?? 'sin detalle'}`);
+  if (sent.status === 'ERROR') throw new Error(`Stellar rejected the transaction: ${sent.errorResult?.toXDR('base64') ?? 'no detail'}`);
   for (let i = 0; i < 30; i++) {
     const got = await server.getTransaction(sent.hash);
     if (got.status === 'SUCCESS') return sent.hash;
-    if (got.status === 'FAILED') throw new Error('la transacción falló en Stellar');
+    if (got.status === 'FAILED') throw new Error('The transaction failed on Stellar');
     await new Promise((r) => setTimeout(r, 1500));
   }
-  throw new Error('Stellar tardó demasiado en confirmar; revisa el explorer');
+  throw new Error('Stellar took too long to confirm; check the explorer');
 }
 
 function humanError(e: unknown): string {
   if (e instanceof FlashApiError) {
     switch (e.code) {
-      case 'BAD_NONCE': return 'Otro pago tuyo se adelantó. Vuelve a intentarlo.';
-      case 'INSUFFICIENT_BALANCE': return 'No tienes saldo suficiente en Flash.';
-      case 'SELF_TRANSFER': return 'No puedes pagarte a ti mismo. Usa otra dirección G….';
-      case 'INVALID_SIGNATURE': return 'La wallet firmó un mensaje distinto. Reintenta.';
-      case 'TOKEN_NOT_ALLOWED': return 'Ese activo no está habilitado en este secuenciador.';
+      case 'BAD_NONCE': return 'Another payment of yours landed first. Try again.';
+      case 'INSUFFICIENT_BALANCE': return 'Not enough Flash balance.';
+      case 'SELF_TRANSFER': return 'You cannot pay yourself. Use another G… address.';
+      case 'INVALID_SIGNATURE': return 'The wallet signed a different message. Try again.';
+      case 'TOKEN_NOT_ALLOWED': return 'That asset is not enabled on this sequencer.';
       default: return e.message;
     }
   }
@@ -165,14 +165,14 @@ function Deposit({ address, token, busy, run }: { address: string; token: string
     <form className="space-y-5" onSubmit={(e) => {
       e.preventDefault();
       void run('deposit', async () => {
-        if (!token) throw new Error('El secuenciador no responde. Reinícialo en Render.');
+        if (!token) throw new Error('Sequencer is not responding. Restart it on Render.');
         const tx = await flash.buildDepositTx({ server, from: address, token, amount: toStroops(amount) });
         const hash = await submitSigned(await signStellarTx(tx.toXDR(), address));
-        return `Depósito enviado (${hash.slice(0, 12)}…). Aparecerá en tu saldo Flash en unos segundos.`;
+        return `Deposit submitted (${hash.slice(0, 12)}…). FXLM will show in a few seconds.`;
       });
     }}>
       <p className="text-sm leading-relaxed text-muted">
-        Meter XLM en Flash es una transacción de Stellar: es el único paso que espera a un ledger, y solo lo haces al entrar.
+        Putting XLM into Flash is a Stellar transaction: the only step that waits for a ledger, and you only do it once.
       </p>
       <LabInput label="Amount" hint="Testnet XLM" inputMode="decimal" placeholder="10.0" value={amount} onChange={(e) => setAmount(e.target.value)} />
       <BtnPrimary type="submit" disabled={busy !== null} className="w-full">{busy === 'deposit' ? 'Signing…' : 'Deposit'}</BtnPrimary>
@@ -188,17 +188,17 @@ function Pay({ address, token, busy, run }: { address: string; token: string | n
     <form className="space-y-5" onSubmit={(e) => {
       e.preventDefault();
       void run('pay', async () => {
-        if (!token) throw new Error('El secuenciador no responde.');
+        if (!token) throw new Error('Sequencer is not responding.');
         const { message, tx } = await flash.signingMessage({ type: 'transfer', from: address, to, token, amount: toStroops(amount) });
         const signature = await signFlashMessage(message, address);
         const receipt = await flash.submitSigned({ ...tx, signature });
         setLatency(receipt.latencyUs);
         setAmount('');
-        return `Pagado. Confirmado en ${(receipt.latencyUs / 1000).toFixed(2)} ms.`;
+        return `Paid. Confirmed in ${(receipt.latencyUs / 1000).toFixed(2)} ms.`;
       });
     }}>
       <p className="text-sm leading-relaxed text-muted">
-        Este pago no toca Stellar: se confirma dentro de Flash en milisegundos. Debe ser a <strong>otra</strong> dirección G… (no a ti mismo).
+        This payment never touches Stellar: it confirms inside Flash in milliseconds. It must go to <strong>another</strong> G… address (not yourself).
       </p>
       <LabInput label="Recipient" hint="Any G… address — no registration needed" placeholder="GBXRLWDX…" value={to} onChange={(e) => setTo(e.target.value.trim())} />
       <LabInput label="Amount" hint="FXLM" inputMode="decimal" placeholder="2.5" value={amount} onChange={(e) => setAmount(e.target.value)} />
@@ -222,18 +222,18 @@ function Withdraw({ address, token, busy, run, pending, setPending }: {
       <form className="space-y-5" onSubmit={(e) => {
         e.preventDefault();
         void run('withdraw', async () => {
-          if (!token) throw new Error('El secuenciador no responde.');
+          if (!token) throw new Error('Sequencer is not responding.');
           const stroops = toStroops(amount);
           const { message, tx } = await flash.signingMessage({ type: 'withdraw', from: address, token, amount: stroops, l1Recipient: address });
           const signature = await signFlashMessage(message, address);
           const receipt = await flash.submitSigned({ ...tx, signature });
           setPending((p) => [{ id: receipt.id, amount: stroops, proof: null }, ...p]);
           setAmount('');
-          return 'Retiro pedido. Cuando pase el periodo de desafío podrás reclamarlo en Stellar.';
+          return 'Withdrawal requested. After the challenge period you can claim XLM on Stellar.';
         });
       }}>
         <p className="text-sm leading-relaxed text-muted">
-          Salir quema tu FXLM y te deja reclamar el XLM en Stellar con una prueba Merkle.
+          Leaving burns your FXLM and lets you claim XLM on Stellar with a Merkle proof.
         </p>
         <LabInput label="Amount" hint="FXLM to withdraw" inputMode="decimal" placeholder="1.0" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <BtnPrimary type="submit" disabled={busy !== null} className="w-full">{busy === 'withdraw' ? 'Signing…' : 'Request withdrawal'}</BtnPrimary>
@@ -259,7 +259,7 @@ function Withdraw({ address, token, busy, run, pending, setPending }: {
                     const tx = await flash.buildWithdrawClaimTx({ server, source: address, proof: p.proof! });
                     await submitSigned(await signStellarTx(tx.toXDR(), address));
                     setPending((list) => list.filter((x) => x.id !== p.id));
-                    return 'Reclamado. El XLM está de vuelta en tu cuenta de Stellar.';
+                    return 'Claimed. The XLM is back in your Stellar account.';
                   })}
                 >
                   Claim

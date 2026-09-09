@@ -12,6 +12,8 @@
  *  GET  /v1/withdrawals/:txId/proof        prueba Merkle para `withdraw` en el puente
  *  GET  /v1/proofs/balance?account=&token= prueba Merkle de saldo (escape hatch)
  *  GET  /v1/deposits
+ *  GET  /v1/stats
+ *  GET  /v1/tokens · GET /v1/assets        metadatos de tokens habilitados
  *  GET  /v1/l1/history                     historial de salud L1
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -57,6 +59,15 @@ async function readJson(req: IncomingMessage, maxBytes = 64 * 1024): Promise<Rec
   } catch {
     throw new HttpError(400, 'BAD_JSON', 'JSON inválido');
   }
+}
+
+const TOKEN_META: Record<string, { symbol: string; decimals: number }> = {
+  CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC: { symbol: 'XLM', decimals: 7 },
+  CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA: { symbol: 'XLM', decimals: 7 },
+};
+
+function tokenList(ids: string[]) {
+  return ids.map((t) => ({ id: t, symbol: TOKEN_META[t]?.symbol ?? 'SAC', decimals: TOKEN_META[t]?.decimals ?? 7 }));
 }
 
 function batchView(b: BatchRecord, withData = false) {
@@ -210,8 +221,9 @@ export function createApiServer(ctx: ApiContext): Server {
       const windowSec = Math.min(3600, Math.max(10, Number(url.searchParams.get('window') ?? 60)));
       const st = sequencer.store.statsSince(Date.now() - windowSec * 1000);
       const last = sequencer.store.lastBatch();
-      const batches = sequencer.store.listBatches(50, 0);
-      const committed = batches.filter((b) => b.committedAt !== null);
+      const recentBatches = sequencer.store.listBatches(50, 0);
+      const committedSample = recentBatches.filter((b) => b.committedAt !== null);
+      const life = sequencer.store.statsSince(0);
       return json(res, 200, {
         windowSec,
         l2: {
@@ -222,27 +234,24 @@ export function createApiServer(ctx: ApiContext): Server {
           byType: st.byType,
           totalTxs: sequencer.store.countTxs(),
           accounts: sequencer.state.size,
+          // La ventana puede estar vacía (red idle) y 0.00 ms parece un fallo. El explorer usa lifetime.
+          lifetime: { txs: life.count, latencyP50Us: life.latencyP50Us, latencyP99Us: life.latencyP99Us },
         },
         l1: {
           batchesTotal: sequencer.nextBatch.toString(),
-          batchesCommitted: committed.length,
+          batchesCommitted: sequencer.store.countCommittedBatches(),
           // Cuánto tarda un lote desde que se sella hasta que Stellar lo incluye.
-          avgSealToCommitMs: committed.length
-            ? Math.round(committed.reduce((a, b) => a + (b.committedAt! - b.sealedAt), 0) / committed.length)
+          avgSealToCommitMs: committedSample.length
+            ? Math.round(committedSample.reduce((a, b) => a + (b.committedAt! - b.sealedAt), 0) / committedSample.length)
             : null,
           lastBatch: last ? batchView(last) : null,
         },
       });
     }
 
-    if (req.method === 'GET' && resource === 'tokens' && !id) {
-      const KNOWN: Record<string, { symbol: string; decimals: number }> = {
-        CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC: { symbol: 'XLM', decimals: 7 },
-        CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA: { symbol: 'XLM', decimals: 7 },
-      };
-      return json(res, 200, {
-        tokens: info.allowedTokens.map((t) => ({ id: t, symbol: KNOWN[t]?.symbol ?? 'SAC', decimals: KNOWN[t]?.decimals ?? 7 })),
-      });
+    // `/v1/assets` es alias: algún proxy ha 404eado `/tokens` en el pasado.
+    if (req.method === 'GET' && (resource === 'tokens' || resource === 'assets') && !id) {
+      return json(res, 200, { tokens: tokenList(info.allowedTokens) });
     }
 
     if (req.method === 'GET' && resource === 'l1' && id === 'history') {

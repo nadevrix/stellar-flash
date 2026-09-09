@@ -6,6 +6,7 @@ contracts/target/
 !.env.example
 data/*.db
 data/*.db-*
+data/*.db.bak
 .tools/
 dist/
 .playwright-mcp/

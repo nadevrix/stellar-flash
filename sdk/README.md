@@ -5,7 +5,9 @@ Los pagos confirman en milisegundos con las mismas llaves `G…` y los mismos ac
 en lotes sobre Stellar y los fondos viven en un contrato Soroban del que se sale con prueba Merkle.
 
 ```bash
-npm install stellar-flash-sdk @stellar/stellar-sdk
+# SDK is not on npm yet — clone this repo
+git clone https://github.com/nadevrix/stellar-flash
+cd stellar-flash && npm install
 ```
 
 ## Pagar

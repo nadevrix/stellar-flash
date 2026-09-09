@@ -25,7 +25,7 @@ Users / Apps ──SEP-53──▶ Flash Sequencer (~2 ms confirm, batch seal)
 **Done**
 - Soroban `flash-bridge` contract (deposit, batches, Merkle withdraw, escape hatch) — 11 Rust tests
 - Shared protocol (Rust ↔ TS), SEP-53 wallet-compatible signing
-- Sequencer: HTTP API, SQLite persistence, L1 health monitor, settlement policy, RPC failover — 14 TS tests
+- Sequencer: HTTP API, SQLite persistence, L1 health monitor, settlement policy, RPC failover — 15 TS tests
 - SDK (`FlashClient`) + testnet E2E script
 - Web app: landing, Bridge dapp, Account dashboard, live Explorer, developer docs (Stellar Lab–style UI)
 - Testnet production on Render (sequencer + static frontend)
@@ -47,7 +47,7 @@ Requirements: Node ≥ 22.18, Rust + `wasm32v1-none` for the contract.
 
 Start at **[docs/README.md](docs/README.md)** (English, presentation-ready).
 
-Technical deep dives (Spanish): architecture, contracts, sequencer API, SDK — in `docs/01`–`10`.
+Technical guides: architecture, sequencer API, SDK, frontend, roadmap — in `docs/`.
 
 ## Integrate in three lines
 

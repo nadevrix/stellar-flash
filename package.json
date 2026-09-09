@@ -13,6 +13,7 @@
     "vectors": "node scripts/gen-vectors.ts",
     "test": "node --test --test-concurrency=1 'protocol/src/**/*.test.ts' 'sequencer/src/**/*.test.ts' 'sdk/src/**/*.test.ts'",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check:testnet": "node scripts/check-testnet.ts",
     "sdk:build": "cd sdk && node build.mjs",
     "contract:test": "cd contracts && cargo test",
     "contract:build": "cd contracts && cargo build --target wasm32v1-none --release -p flash-bridge"

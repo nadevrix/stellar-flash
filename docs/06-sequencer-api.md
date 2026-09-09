@@ -6,7 +6,7 @@ Code lives in `sequencer/src/` (TypeScript run directly by Node ≥ 22.18 with t
 
 ```bash
 npm install
-npm test                 # 14 tests (protocol, sequencer, policy, engine, API, SDK)
+npm test                 # TS tests (protocol, sequencer, policy, engine, API, SDK)
 npm run typecheck
 npm run demo             # end-to-end demo with simulated L1
 npm start                # sequencer in mock mode → http://127.0.0.1:8787
@@ -88,11 +88,11 @@ If `get_config().batch_count != local nextBatch`:
 
 ## 5. Production checklist
 
-- 2–3 RPC endpoints in `RPC_URLS`.
+- 2–3 RPC endpoints in `RPC_URLS` (set in the Render **dashboard** if the service was created before `render.yaml`).
 - `SEQUENCER_SECRET` in a secret manager; fund account for fees.
 - Single active sequencer (two instances corrupt `commit_batch` sequence).
-- DB backups every minute. Batch data is also on L1; full unbatched log is local only.
-- Metrics: submit latency, tx/s, queue depth, batch age, fees paid.
+- SQLite backup every 60 s to `$DB_PATH.bak` (WAL-safe). Also enable Render disk snapshots.
+- Metrics: submit latency, tx/s, queue depth, batch age, fees paid (`GET /v1/stats`).
 - `MAX_BATCH_BYTES` ≤ 120 000 (margin under Soroban max 132 096).
 - Rate limiting and API keys: planned (Phase 2).
 

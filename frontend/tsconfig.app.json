@@ -11,7 +11,8 @@
     "baseUrl": ".",
     "paths": {
       "@flash/sdk": ["../sdk/src/index.ts"],
-      "@flash/sdk/*": ["../sdk/src/*"]
+      "@flash/sdk/*": ["../sdk/src/*"],
+      "@flash/protocol": ["../protocol/src/index.ts"]
     },
 
     /* Bundler mode */

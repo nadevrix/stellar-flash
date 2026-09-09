@@ -15,6 +15,9 @@ import { MockL1Client, type L1Client } from './settlement/l1.ts';
 import { StellarRpcL1Client } from './settlement/rpc-client.ts';
 
 const cfg = loadConfig();
+if (cfg.l1Mode === 'rpc' && cfg.rpcUrls.length < 2) {
+  console.warn(`[config] RPC_URLS tiene ${cfg.rpcUrls.length} endpoint. En testnet producción hace falta failover (dos URLs separadas por coma; ver render.yaml).`);
+}
 const domain = domainSeparator({ networkPassphrase: cfg.networkPassphrase, bridgeContractId: cfg.bridgeContractId });
 const store = new Store(cfg.dbPath);
 
@@ -74,7 +77,28 @@ const server = createApiServer({ sequencer, engine, info: { networkPassphrase: c
 server.listen(cfg.apiPort, cfg.apiHost, () => {
   console.log(`Stellar Flash sequencer · L1=${cfg.l1Mode} · API http://${cfg.apiHost}:${cfg.apiPort}/v1/health · DB ${cfg.dbPath}`);
   console.log(`estado: seq=${sequencer.currentSeq} cuentas=${sequencer.state.size} próximo lote=#${sequencer.nextBatch} raíz=${sequencer.state.rootHex().slice(0, 16)}…`);
+  if (cfg.l1Mode === 'rpc') console.log(`rpc: ${cfg.rpcUrls.length} endpoint(s)`);
 });
+
+// Copia WAL-safe cada minuto. El lote publicado está en L1; el log aún no sellado solo vive aquí.
+if (cfg.dbPath !== ':memory:') {
+  const dest = `${cfg.dbPath}.bak`;
+  let announced = false;
+  const tick = async () => {
+    try {
+      await store.backup(dest);
+      if (!announced) {
+        console.log(`[db] backup cada 60s → ${dest}`);
+        announced = true;
+      }
+    } catch (e) {
+      console.warn(`[db] backup falló: ${(e as Error).message}`);
+    }
+  };
+  void tick();
+  const backupTimer = setInterval(() => void tick(), 60_000);
+  backupTimer.unref();
+}
 
 const shutdown = () => {
   console.log('apagando…');
