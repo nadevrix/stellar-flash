@@ -5,7 +5,7 @@ import { FlashApiError, FlashClient, type FlashOnrampInfo, type WithdrawalProofV
 import { useHealth } from '../components/LiveStatus.tsx';
 import { Alert, BtnPrimary, BtnSecondary, Card, LabInput, PageHeader, Segmented, StatTile } from '../components/ui/Lab.tsx';
 import { useWallet } from '../context/WalletContext.tsx';
-import { SEQUENCER_URL, XLM_TESTNET, type Health } from '../lib/api.ts';
+import { SEQUENCER_URL, XLM_TESTNET, fetchAccount, type Health } from '../lib/api.ts';
 import { EXPERT, fmtStroops, toHorizonAmount, toStroops } from '../lib/format.ts';
 import { signFlashMessage, signStellarTx } from '../lib/wallet.ts';
 
@@ -17,11 +17,28 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** POST a Horizon: devuelve el hash en cuanto la red acepta la tx. El SDK a veces se queda esperando. */
 async function submitHorizon(horizonUrl: string, signedXdr: string): Promise<string> {
-  const horizon = new Horizon.Server(horizonUrl);
-  const tx = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
-  const sent = await horizon.submitTransaction(tx);
-  return sent.hash;
+  const res = await fetch(`${horizonUrl.replace(/\/$/, '')}/transactions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ tx: signedXdr }),
+  });
+  const body = (await res.json()) as {
+    hash?: string;
+    title?: string;
+    detail?: string;
+    extras?: { result_codes?: { transaction?: string } };
+  };
+  if (!res.ok || !body.hash) {
+    const code = body.extras?.result_codes?.transaction;
+    throw new Error(code ? `Stellar rejected the payment (${code}).` : (body.detail || body.title || `Horizon HTTP ${res.status}`));
+  }
+  return body.hash;
+}
+
+function balanceOf(acc: { balances: { token: string; balance: string }[] }, token: string): bigint {
+  return BigInt(acc.balances.find((b) => b.token === token)?.balance ?? '0');
 }
 
 function humanError(e: unknown): string {
@@ -79,7 +96,11 @@ export function Bridge() {
 
   const refresh = useCallback(async () => {
     if (!address || !token) return;
-    try { setFlashBalance(await flash.getBalance(address, token)); setBalanceReady(true); } catch { /* reintenta */ }
+    try {
+      const acc = await fetchAccount(address);
+      setFlashBalance(balanceOf(acc, token));
+      setBalanceReady(true);
+    } catch { /* reintenta */ }
     try {
       const res = await fetch(`${onramp?.horizonUrl ?? HORIZON_FALLBACK}/accounts/${address}`);
       if (res.ok) {
@@ -164,7 +185,7 @@ export function Bridge() {
       {notice && <Alert tone="success">{notice}</Alert>}
 
       <Card className="mt-6 p-6">
-        {tab === 'deposit' && <Deposit address={address} token={token} onramp={onramp} healthReady={health !== null} flashBalance={flashBalance} busy={busy} run={run} />}
+        {tab === 'deposit' && <Deposit address={address} token={token} onramp={onramp} healthReady={health !== null} flashBalance={flashBalance} busy={busy} setBusy={setBusy} run={run} />}
         {tab === 'pay' && <Pay address={address} token={token} busy={busy} run={run} />}
         {tab === 'withdraw' && <Withdraw address={address} token={token} busy={busy} run={run} pending={pending} setPending={setPending} />}
       </Card>
@@ -189,8 +210,9 @@ function CopyAddr({ value }: { value: string }) {
   );
 }
 
-function Deposit({ address, token, onramp, healthReady, flashBalance, busy, run }: {
-  address: string; token: string; onramp: FlashOnrampInfo | null; healthReady: boolean; flashBalance: bigint; busy: string | null; run: RunFn;
+function Deposit({ address, token, onramp, healthReady, flashBalance, busy, setBusy, run }: {
+  address: string; token: string; onramp: FlashOnrampInfo | null; healthReady: boolean; flashBalance: bigint; busy: string | null;
+  setBusy: (v: string | null) => void; run: RunFn;
 }) {
   const [amount, setAmount] = useState('');
   if (!healthReady) {
@@ -208,7 +230,7 @@ function Deposit({ address, token, onramp, healthReady, flashBalance, busy, run 
   return (
     <form className="space-y-5" onSubmit={(e) => {
       e.preventDefault();
-      void run('deposit', async () => {
+      void run('sign', async () => {
         if (!token) throw new Error('Sequencer is not responding.');
         const stroops = toStroops(amount);
         if (stroops < BigInt(onramp.minAmount)) {
@@ -221,12 +243,16 @@ function Deposit({ address, token, onramp, healthReady, flashBalance, busy, run 
           .addOperation(Operation.payment({ destination: onramp.address, asset: Asset.native(), amount: toHorizonAmount(amount) }))
           .setTimeout(60)
           .build();
-        const hash = await submitHorizon(horizonUrl, await signStellarTx(tx.toXDR(), address));
+        const signed = await signStellarTx(tx.toXDR(), address);
+        setBusy('send');
+        const hash = await submitHorizon(horizonUrl, signed);
+        setBusy('credit');
         const before = flashBalance;
-        for (let i = 0; i < 40; i++) {
-          await sleep(2000);
+        for (let i = 0; i < 30; i++) {
+          await sleep(1500);
           try {
-            const bal = await flash.getBalance(address, token);
+            const acc = await fetchAccount(address);
+            const bal = balanceOf(acc, token);
             if (bal > before) return `FXLM credited. Your Stellar payment was ${hash.slice(0, 12)}…`;
           } catch { /* sequencer catching up */ }
           try {
@@ -236,6 +262,10 @@ function Deposit({ address, token, onramp, healthReady, flashBalance, busy, run 
               const p = body.payments?.find((x) => x.txHash.toLowerCase() === hash.toLowerCase());
               if (p?.status === 'failed') throw new Error(p.error || 'We could not lock this payment in the vault. It will be retried.');
               if (p?.status === 'skipped') throw new Error('Amount below the minimum; the XLM stayed in the sequencer account.');
+              if (p?.status === 'deposited') {
+                const acc = await fetchAccount(address);
+                if (balanceOf(acc, token) > before) return `FXLM credited. Your Stellar payment was ${hash.slice(0, 12)}…`;
+              }
             }
           } catch (err) {
             if (err instanceof Error && err.message !== 'Failed to fetch') throw err;
@@ -254,7 +284,12 @@ function Deposit({ address, token, onramp, healthReady, flashBalance, busy, run 
         <a href={EXPERT.account(onramp.address)} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-lab-purple underline">View on Stellar Expert</a>
       </div>
       <LabInput label="Amount" hint="Testnet XLM · we convert it to FXLM" inputMode="decimal" placeholder="10.0" value={amount} onChange={(e) => setAmount(e.target.value)} />
-      <BtnPrimary type="submit" disabled={busy !== null} className="w-full">{busy === 'deposit' ? 'Sending XLM…' : 'Send XLM → FXLM'}</BtnPrimary>
+      <BtnPrimary type="submit" disabled={busy !== null} className="w-full">
+        {busy === 'sign' ? 'Sign in the wallet…'
+          : busy === 'send' ? 'Sending XLM…'
+            : busy === 'credit' ? 'Crediting FXLM…'
+              : 'Send XLM → FXLM'}
+      </BtnPrimary>
     </form>
   );
 }
