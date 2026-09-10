@@ -48,6 +48,7 @@ function humanError(e: unknown): string {
       case 'INSUFFICIENT_BALANCE': return 'Not enough Flash balance.';
       case 'SELF_TRANSFER': return 'You cannot pay yourself. Use another G… address.';
       case 'INVALID_SIGNATURE': return 'The wallet signed a different message. Try again.';
+      case 'INVALID_AMOUNT': return 'Enter an amount greater than zero.';
       case 'TOKEN_NOT_ALLOWED': return 'That asset is not enabled on this sequencer.';
       default: return e.message;
     }
@@ -116,6 +117,34 @@ export function Bridge() {
     const t = setInterval(() => void refresh(), 5000);
     return () => clearInterval(t);
   }, [refresh]);
+
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const acc = await fetchAccount(address);
+        const next: Pending[] = [];
+        for (const t of acc.transactions.filter((x) => x.type === 'withdraw')) {
+          try {
+            const proof = await flash.getWithdrawalProof(t.id);
+            const ageMs = Date.now() - t.createdAt;
+            if (proof.claimed && ageMs > 30 * 60 * 1000) continue;
+            next.push({ id: t.id, amount: BigInt(t.amount), proof });
+          } catch {
+            next.push({ id: t.id, amount: BigInt(t.amount), proof: null });
+          }
+        }
+        if (!cancelled && next.length) {
+          setPending((prev) => {
+            const seen = new Set(prev.map((p) => p.id));
+            return [...prev, ...next.filter((p) => !seen.has(p.id))];
+          });
+        }
+      } catch { /* lista informativa */ }
+    })();
+    return () => { cancelled = true; };
+  }, [address]);
 
   useEffect(() => {
     if (pending.length === 0) return;
@@ -330,6 +359,8 @@ function withdrawStatus(p: Pending): string {
   if (p.proof?.claimed) return 'XLM sent to your Stellar account';
   if (p.proof?.claimable) return 'batch finalized · we are paying you on Stellar';
   if (!p.proof) return 'waiting for batch…';
+  if (p.proof.batchStatus === 'committed') return `batch #${p.proof.batchIndex} on Stellar · ~1 min until we pay XLM`;
+  if (p.proof.batchStatus === 'sealed') return `batch #${p.proof.batchIndex} publishing on Stellar…`;
   return `batch #${p.proof.batchIndex} · ${p.proof.batchStatus}`;
 }
 
@@ -357,7 +388,7 @@ function Withdraw({ address, token, busy, run, pending, setPending }: {
           Leaving burns FXLM. We wait for the batch to finalize, then we claim the vault and pay you XLM.
           You do not sign a Soroban transaction.
         </p>
-        <LabInput label="Amount" hint="FXLM to withdraw" inputMode="decimal" placeholder="1.0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <LabInput label="Amount" hint="FXLM to withdraw" inputMode="decimal" placeholder="e.g. 5" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <BtnPrimary type="submit" disabled={busy !== null} className="w-full">{busy === 'withdraw' ? 'Signing…' : 'Request withdrawal'}</BtnPrimary>
       </form>
 

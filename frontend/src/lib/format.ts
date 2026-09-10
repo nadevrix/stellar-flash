@@ -16,12 +16,13 @@ export const ago = (t: number) => {
 };
 
 export const toStroops = (s: string): bigint => {
-  const t = s.trim();
-  if (!/^\d+(\.\d+)?$/.test(t)) throw new Error('Invalid amount');
+  const t = s.trim().replace(/\s+/g, '').replace(',', '.');
+  if (!t) throw new Error('Enter an amount');
+  if (!/^\d+(\.\d+)?$/.test(t)) throw new Error('Enter a number, for example 1.5');
   const [w, f = ''] = t.split('.');
   if (f.length > 7) throw new Error('Use at most 7 decimal places');
   const n = BigInt(w) * 10_000_000n + BigInt((f + '0000000').slice(0, 7));
-  if (n <= 0n) throw new Error('Invalid amount');
+  if (n <= 0n) throw new Error('Amount must be greater than zero');
   return n;
 };
 
