@@ -5,7 +5,8 @@
  *  - `signMessage`     → pagos dentro de Flash (SEP-53). No tocan la L1.
  *  - `signTransaction` → depósito: un pago XLM clásico a la cuenta del secuenciador (Horizon, no Soroban).
  */
-import { Networks, StellarWalletsKit } from '@creit.tech/stellar-wallets-kit';
+import { StellarWalletsKit } from '@creit.tech/stellar-wallets-kit';
+import { kitNetwork, networkPassphrase } from './network.ts';
 import { FreighterModule } from '@creit.tech/stellar-wallets-kit/modules/freighter';
 import { xBullModule } from '@creit.tech/stellar-wallets-kit/modules/xbull';
 import { LobstrModule } from '@creit.tech/stellar-wallets-kit/modules/lobstr';
@@ -19,7 +20,7 @@ let started = false;
 function start(): void {
   if (started) return;
   StellarWalletsKit.init({
-    network: Networks.TESTNET,
+    network: kitNetwork(),
     modules: [
       new FreighterModule(), new xBullModule(), new LobstrModule(),
       new AlbedoModule(), new HanaModule(), new RabetModule(),
@@ -95,7 +96,7 @@ function decodeWalletSignature(signed: unknown): Uint8Array {
 export async function signFlashMessage(message: Uint8Array, address: string): Promise<string> {
   const { signedMessage } = await StellarWalletsKit.signMessage(toHex(message), {
     address,
-    networkPassphrase: Networks.TESTNET,
+    networkPassphrase: networkPassphrase(),
   });
   const sig = decodeWalletSignature(signedMessage);
   if (sig.length !== 64) throw new Error('Wallet returned a signature that is not 64 bytes.');
@@ -106,7 +107,7 @@ export async function signFlashMessage(message: Uint8Array, address: string): Pr
 export async function signStellarTx(xdr: string, address: string): Promise<string> {
   const { signedTxXdr } = await StellarWalletsKit.signTransaction(xdr, {
     address,
-    networkPassphrase: Networks.TESTNET,
+    networkPassphrase: networkPassphrase(),
   });
   return signedTxXdr;
 }

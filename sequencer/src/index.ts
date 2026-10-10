@@ -12,6 +12,7 @@ import { Store } from './db/store.ts';
 import { SettlementEngine, type EngineEvent } from './settlement/engine.ts';
 import { L1HealthMonitor } from './settlement/health.ts';
 import { MockL1Client, type L1Client } from './settlement/l1.ts';
+import { buildLimits, type FlashLimits } from './limits.ts';
 import { BridgeOperator, HorizonPaymentFeed } from './settlement/operator.ts';
 import { StellarRpcL1Client } from './settlement/rpc-client.ts';
 
@@ -47,6 +48,9 @@ const nativeSac = cfg.networkPassphrase === Networks.PUBLIC
   ? 'CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA'
   : 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
 const onrampToken = cfg.allowedTokens[0] ?? nativeSac;
+const limits: FlashLimits | null = cfg.limitedMainnet
+  ? buildLimits({ allowlist: cfg.allowlist, accountCapStroops: cfg.accountCapStroops, vaultCapStroops: cfg.vaultCapStroops })
+  : null;
 const operator =
   sequencerKp && onrampToken && (cfg.onrampEnabled || cfg.offrampAutoclaim)
     ? new BridgeOperator({
@@ -61,6 +65,7 @@ const operator =
         autoclaim: cfg.offrampAutoclaim,
         skipHistorical: true,
         maxInclusionFeeStroops: cfg.maxInclusionFeeStroops,
+        limits,
         log,
       })
     : undefined;
@@ -121,6 +126,7 @@ const server = createApiServer({
     startedAt: Date.now(),
     sequencerAccount: sequencerKp?.publicKey() ?? null,
     onramp: onrampInfo,
+    limits,
   },
 });
 server.listen(cfg.apiPort, cfg.apiHost, () => {
@@ -128,6 +134,7 @@ server.listen(cfg.apiPort, cfg.apiHost, () => {
   console.log(`estado: seq=${sequencer.currentSeq} cuentas=${sequencer.state.size} próximo lote=#${sequencer.nextBatch} raíz=${sequencer.state.rootHex().slice(0, 16)}…`);
   if (cfg.l1Mode === 'rpc') console.log(`rpc: ${cfg.rpcUrls.length} endpoint(s)`);
   if (onrampInfo?.enabled) console.log(`onramp: paga XLM clásico a ${onrampInfo.address} (Horizon ${cfg.horizonUrl})`);
+  if (limits) console.log(`límites: allowlist=${limits.allowlist.size} cuentas · cap cuenta=${limits.accountCapStroops} · cap bóveda=${limits.vaultCapStroops}`);
 });
 
 // Copia WAL-safe cada minuto. El lote publicado está en L1; el log aún no sellado solo vive aquí.

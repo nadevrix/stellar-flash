@@ -12,6 +12,7 @@ All documentation in this folder is **English** and intended for GitHub, judges,
 |----------|---------|
 | [00-START-HERE.md](00-START-HERE.md) | Overview, repo map, quick start |
 | [11-product-and-deployment.md](11-product-and-deployment.md) | Live product, URLs, Render ops, troubleshooting |
+| [12-limited-mainnet.md](12-limited-mainnet.md) | Separate allowlisted mainnet pilot (caps, do not flip the testnet demo) |
 | [04-architecture.md](04-architecture.md) | Technical architecture, flows, trust model |
 | [06-sequencer-api.md](06-sequencer-api.md) | HTTP API reference |
 | [07-sdk-integration.md](07-sdk-integration.md) | SDK and wallet integration (SEP-53) |
@@ -55,7 +56,7 @@ Requirements: Node ≥ 22.18, Rust + `wasm32v1-none` for the contract.
 - SDK (`FlashClient`) with SEP-53 wallet signing
 - Web app: landing, Bridge dapp, Account dashboard, live Explorer, developer docs
 - Testnet deployment on Render (sequencer + static frontend)
-- 16 automated tests + deposit solvency / anti-infinite-mint checks + classic-XLM onramp
+- 17 automated tests + deposit solvency / anti-infinite-mint checks + classic-XLM onramp + limited-mainnet caps
 
 ---
 

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stellar Flash · Pitch · Stellar Elite Bolivia</title>
+  <style>
+    :root { --gold:#FDDA24; --ink:#0F0F0F; --muted:#6B7280; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--ink); color: #fff; font-family: Inter, system-ui, sans-serif; }
+    .deck { max-width: 960px; margin: 0 auto; padding: 32px 20px 80px; }
+    h1 { font-size: 2.4rem; letter-spacing: -0.03em; margin: 0 0 12px; }
+    h2 { font-size: 1.7rem; letter-spacing: -0.02em; color: var(--gold); margin: 0 0 16px; }
+    p, li { line-height: 1.5; color: #e5e7eb; }
+    .slide { min-height: 70vh; padding: 48px 40px; margin: 0 0 28px; border: 1px solid #222; border-radius: 16px; background: #111; page-break-after: always; }
+    .kicker { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); margin-bottom: 16px; }
+    .muted { color: var(--muted); }
+    a { color: var(--gold); }
+    ul { padding-left: 1.2em; }
+    .grid { display: grid; gap: 16px; }
+    @media (min-width: 720px) { .grid.two { grid-template-columns: 1fr 1fr; } }
+    .stat { border: 1px solid #2a2a2a; border-radius: 12px; padding: 16px; }
+    .stat b { display: block; font-size: 1.6rem; color: var(--gold); }
+    footer { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="deck">
+    <section class="slide">
+      <div class="kicker">Stellar Elite Bolivia · 2026</div>
+      <h1>Stellar Flash</h1>
+      <p>Rollup de pagos sobre Stellar. Mismas llaves <code>G…</code>, confirmación en milisegundos, liquidación en L1.</p>
+      <p class="muted">Rodrigo Ricaldez (nadevrix) · Santa Cruz · individual · testnet público</p>
+    </section>
+
+    <section class="slide">
+      <h2>El problema</h2>
+      <ul>
+        <li>Un pago Stellar tarda 5–6 s por hop.</li>
+        <li>Si el RPC o las fees fallan, la app se cae.</li>
+        <li>Payouts, juegos y agentes necesitan confirmación instantánea.</li>
+        <li>Hoy se resuelve con una base custodial o saliendo de Stellar.</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <h2>La tesis</h2>
+      <p>Arbitrum hizo rápida a Ethereum sin nueva chain. Flash hace instantáneos los <em>pagos</em> en Stellar: ejecución fuera, custodia y pruebas en un contrato Soroban.</p>
+    </section>
+
+    <section class="slide">
+      <h2>Cómo funciona</h2>
+      <ol>
+        <li><strong>Depósito:</strong> XLM clásico por Horizon. Nosotros lo bloqueamos en <code>flash-bridge</code> y acreditamos FXLM 1:1.</li>
+        <li><strong>Pago:</strong> firma SEP-53 (Freighter). ~2–6 ms. Sin RPC de Soroban en la wallet.</li>
+        <li><strong>Lote:</strong> el secuenciador publica raíces y datos en L1 cuando Stellar está sana.</li>
+        <li><strong>Retiro:</strong> se quema FXLM; Merkle proof; XLM de vuelta. Escape hatch si desaparecemos.</li>
+      </ol>
+    </section>
+
+    <section class="slide">
+      <h2>Qué está live (testnet)</h2>
+      <div class="grid two">
+        <div class="stat"><b>App</b> Bridge, account, explorer, API</div>
+        <div class="stat"><b>~2–6 ms</b> confirmación L2 medida</div>
+        <div class="stat"><b>1:1</b> FXLM respaldado en el vault</div>
+        <div class="stat"><b>0</b> llaves nuevas: tu G… es la cuenta</div>
+      </div>
+      <p>Contrato <code>CBRJ3ILZPY4AUNC5I6SC5FTRA2CJIZJPY5337FO2QO5BQ7HSB2Z7IBB4</code></p>
+    </section>
+
+    <section class="slide">
+      <h2>Qué no es (aún)</h2>
+      <ul>
+        <li>No es mainnet: subir el WASM en Public cuesta ~21 XLM de rent.</li>
+        <li>No hay <code>challenge_batch</code> todavía. Confianza = secuenciador honesto + datos on-chain replayables.</li>
+        <li>El código de mainnet limitado (allowlist + topes) está listo; no se flipó el demo de testnet.</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <h2>Siguiente</h2>
+      <ul>
+        <li>Pruebas de fraude y watchtower.</li>
+        <li>Mainnet limitado (allowlist, 0.2 XLM / 1 XLM de tope) cuando haya float para el WASM.</li>
+        <li>SDK para payouts, juegos y agentes sobre las mismas G….</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <h2>Links</h2>
+      <p><a href="https://stellar-flash.onrender.com">App</a> · <a href="https://stellar-flash.onrender.com/bridge">Bridge</a></p>
+      <p><a href="https://github.com/nadevrix/stellar-flash">GitHub</a></p>
+      <p><a href="https://stellar.expert/explorer/testnet/contract/CBRJ3ILZPY4AUNC5I6SC5FTRA2CJIZJPY5337FO2QO5BQ7HSB2Z7IBB4">Contrato testnet</a></p>
+      <footer>Stellar Flash · nadevrix · Stellar Elite Bolivia</footer>
+    </section>
+  </div>
+</body>
+</html>

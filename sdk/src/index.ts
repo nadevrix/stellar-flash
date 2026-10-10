@@ -37,6 +37,7 @@ export interface FlashNetworkInfo {
   allowedTokens: string[];
   sequencerAccount?: string | null;
   onramp?: FlashOnrampInfo | null;
+  limits?: { limited: true; accountCap: string; vaultCap: string; allowlistSize: number } | null;
 }
 
 export interface FlashOnrampInfo {

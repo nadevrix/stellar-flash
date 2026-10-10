@@ -29,7 +29,7 @@ See [11-product-and-deployment.md](11-product-and-deployment.md).
 - Open-source watchtower CLI (follows contract, replays batches, alerts/challenges)
 - Contract audit (SCF/SDF subsidized audit programs)
 - Postgres + passive replica; developer metrics
-- **Limited mainnet** (deposit caps per account, XLM/USDC)
+- **Limited mainnet** — code path shipped (`LIMITED_MAINNET`, allowlist, caps). Run it as a **separate** instance; do not flip the public testnet demo. See [12-limited-mainnet.md](12-limited-mainnet.md).
 
 ### Phase 2.5 · State scale and readable signatures
 - **Incremental Merkle tree.** Today `root()` rebuilds the full tree each batch (~31 µs per account → wall at ~50–65k accounts with 2 s seal interval). Incremental update → O(log n).

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Asset, Horizon, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
+import { Asset, Horizon, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
+import { isPublicNetwork, networkPassphrase } from '../lib/network.ts';
 import { FlashApiError, FlashClient, type FlashOnrampInfo, type WithdrawalProofView } from '@flash/sdk';
 import { useHealth } from '../components/LiveStatus.tsx';
 import { Alert, BtnPrimary, BtnSecondary, Card, LabInput, PageHeader, Segmented, StatTile } from '../components/ui/Lab.tsx';
@@ -9,7 +10,9 @@ import { SEQUENCER_URL, XLM_TESTNET, fetchAccount, type Health } from '../lib/ap
 import { EXPERT, fmtStroops, toHorizonAmount, toStroops } from '../lib/format.ts';
 import { signFlashMessage, signStellarTx } from '../lib/wallet.ts';
 
-const HORIZON_FALLBACK = 'https://horizon-testnet.stellar.org';
+function horizonFallback(passphrase?: string): string {
+  return isPublicNetwork(passphrase) ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
+}
 
 const flash = new FlashClient({ baseUrl: SEQUENCER_URL });
 
@@ -50,6 +53,9 @@ function humanError(e: unknown): string {
       case 'INVALID_SIGNATURE': return 'The wallet signed a different message. Try again.';
       case 'INVALID_AMOUNT': return 'Enter an amount greater than zero.';
       case 'TOKEN_NOT_ALLOWED': return 'That asset is not enabled on this sequencer.';
+      case 'NOT_ALLOWLISTED': return 'This wallet is not on the limited-mainnet allowlist.';
+      case 'ACCOUNT_CAP': return 'That deposit would exceed the per-account cap.';
+      case 'VAULT_CAP': return 'The vault cap is full. Try a smaller amount or wait for withdrawals.';
       default: return e.message;
     }
   }
@@ -72,11 +78,11 @@ function onrampFromHealth(h: Health | null): FlashOnrampInfo | null {
   const raw = h.network.onramp;
   const token = raw?.token ?? h.network.allowedTokens?.[0] ?? XLM_TESTNET;
   if (raw?.enabled && raw.address?.startsWith('G')) {
-    return { enabled: true, address: raw.address, horizonUrl: raw.horizonUrl || HORIZON_FALLBACK, minAmount: raw.minAmount, token, autoclaim: raw.autoclaim };
+    return { enabled: true, address: raw.address, horizonUrl: raw.horizonUrl || horizonFallback(h.network.passphrase), minAmount: raw.minAmount, token, autoclaim: raw.autoclaim };
   }
   const addr = h.network.sequencerAccount;
   if (h.network.l1Mode === 'rpc' && addr?.startsWith('G')) {
-    return { enabled: true, address: addr, horizonUrl: HORIZON_FALLBACK, minAmount: '10000', token, autoclaim: true };
+    return { enabled: true, address: addr, horizonUrl: horizonFallback(h.network.passphrase), minAmount: '10000', token, autoclaim: true };
   }
   return null;
 }
@@ -103,14 +109,14 @@ export function Bridge() {
       setBalanceReady(true);
     } catch { /* reintenta */ }
     try {
-      const res = await fetch(`${onramp?.horizonUrl ?? HORIZON_FALLBACK}/accounts/${address}`);
+      const res = await fetch(`${onramp?.horizonUrl ?? horizonFallback(health?.network.passphrase)}/accounts/${address}`);
       if (res.ok) {
         const acc = (await res.json()) as { balances: { asset_type: string; balance: string }[] };
         const native = acc.balances.find((b) => b.asset_type === 'native');
         setL1Balance(native ? BigInt(Math.round(Number(native.balance) * 1e7)) : 0n);
       } else if (res.status === 404) setL1Balance(0n);
     } catch { /* informativo */ }
-  }, [address, token, onramp?.horizonUrl]);
+  }, [address, token, onramp?.horizonUrl, health?.network.passphrase]);
 
   useEffect(() => {
     void refresh();
@@ -184,7 +190,7 @@ export function Bridge() {
           <BtnPrimary className="mt-6" onClick={() => void connect()} disabled={connecting}>
             {connecting ? 'Connecting…' : 'Connect wallet'}
           </BtnPrimary>
-          <p className="mt-6 text-sm text-muted">Freighter · xBull · Lobstr · Albedo · Hana · Rabet · testnet only</p>
+          <p className="mt-6 text-sm text-muted">Freighter · xBull · Lobstr · Albedo · Hana · Rabet — same network as the sequencer</p>
         </Card>
       </div>
     );
@@ -197,6 +203,14 @@ export function Bridge() {
         title="Move funds on Flash"
         description="Pay with FXLM instantly. Entering and leaving are normal Stellar payments — we talk to Soroban, you don't."
       />
+
+      {health?.network.limits?.limited && (
+        <div className="mb-6">
+          <Alert tone="info">
+            Limited mainnet: allowlist only ({health.network.limits.allowlistSize} wallets). Cap {fmtStroops(health.network.limits.accountCap)} FXLM per account, {fmtStroops(health.network.limits.vaultCap)} in the vault. Freighter must be on Main Net.
+          </Alert>
+        </div>
+      )}
 
       <Card className="mb-6 grid overflow-hidden sm:grid-cols-2">
         <StatTile label="On Flash · FXLM · instant" value={balanceReady ? fmtStroops(flashBalance) : '—'} />
@@ -255,7 +269,7 @@ function Deposit({ address, token, onramp, healthReady, flashBalance, busy, setB
       </p>
     );
   }
-  const horizonUrl = onramp.horizonUrl || HORIZON_FALLBACK;
+  const horizonUrl = onramp.horizonUrl || horizonFallback();
   return (
     <form className="space-y-5" onSubmit={(e) => {
       e.preventDefault();
@@ -268,7 +282,7 @@ function Deposit({ address, token, onramp, healthReady, flashBalance, busy, setB
         const horizon = new Horizon.Server(horizonUrl);
         const account = await horizon.loadAccount(address);
         const fee = String(await horizon.fetchBaseFee());
-        const tx = new TransactionBuilder(account, { fee, networkPassphrase: Networks.TESTNET })
+        const tx = new TransactionBuilder(account, { fee, networkPassphrase: networkPassphrase() })
           .addOperation(Operation.payment({ destination: onramp.address, asset: Asset.native(), amount: toHorizonAmount(amount) }))
           .setTimeout(60)
           .build();
@@ -290,7 +304,9 @@ function Deposit({ address, token, onramp, healthReady, flashBalance, busy, setB
               const body = (await r.json()) as { payments?: { txHash: string; status: string; error?: string | null }[] };
               const p = body.payments?.find((x) => x.txHash.toLowerCase() === hash.toLowerCase());
               if (p?.status === 'failed') throw new Error(p.error || 'We could not lock this payment in the vault. It will be retried.');
-              if (p?.status === 'skipped') throw new Error('Amount below the minimum; the XLM stayed in the sequencer account.');
+              if (p?.status === 'skipped') {
+                throw new Error(p.error || 'The sequencer skipped this deposit. The XLM stayed in the operator account — refund by hand.');
+              }
               if (p?.status === 'deposited') {
                 const acc = await fetchAccount(address);
                 if (balanceOf(acc, token) > before) return `FXLM credited. Your Stellar payment was ${hash.slice(0, 12)}…`;
@@ -312,7 +328,7 @@ function Deposit({ address, token, onramp, healthReady, flashBalance, busy, setB
         <CopyAddr value={onramp.address} />
         <a href={EXPERT.account(onramp.address)} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-lab-purple underline">View on Stellar Expert</a>
       </div>
-      <LabInput label="Amount" hint="Testnet XLM · we convert it to FXLM" inputMode="decimal" placeholder="10.0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <LabInput label="Amount" hint={`${isPublicNetwork() ? 'Mainnet' : 'Testnet'} XLM · we convert it to FXLM`} inputMode="decimal" placeholder="10.0" value={amount} onChange={(e) => setAmount(e.target.value)} />
       <BtnPrimary type="submit" disabled={busy !== null} className="w-full">
         {busy === 'sign' ? 'Sign in the wallet…'
           : busy === 'send' ? 'Sending XLM…'

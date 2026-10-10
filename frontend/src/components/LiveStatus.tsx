@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchHealth, SEQUENCER_URL, type Health } from '../lib/api.ts';
+import { setNetworkPassphrase } from '../lib/network.ts';
 
 const TONE = {
   HEALTHY: { dot: 'bg-teal', label: 'Healthy', text: 'text-teal' },
@@ -17,7 +18,9 @@ export function useHealth(intervalMs = 4000) {
     let timer: number;
     const tick = async () => {
       try {
-        setHealth(await fetchHealth(ctrl.signal));
+        const h = await fetchHealth(ctrl.signal);
+        if (h.network.passphrase) setNetworkPassphrase(h.network.passphrase);
+        setHealth(h);
         setError(null);
       } catch (e) {
         if (!ctrl.signal.aborted) setError((e as Error).message);

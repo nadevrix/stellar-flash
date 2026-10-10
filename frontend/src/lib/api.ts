@@ -17,7 +17,15 @@ export interface Health {
     reason: string; latestLedger: number; ledgerAgeSec: number;
     feeP50: number; feeP90: number; surge: boolean;
   };
-  network: { bridgeContractId: string; l1Mode: string; passphrase: string; allowedTokens?: string[]; sequencerAccount?: string | null; onramp?: { enabled: boolean; address: string; horizonUrl: string; minAmount: string; token?: string; autoclaim: boolean } | null };
+  network: {
+    bridgeContractId: string;
+    l1Mode: string;
+    passphrase: string;
+    allowedTokens?: string[];
+    sequencerAccount?: string | null;
+    onramp?: { enabled: boolean; address: string; horizonUrl: string; minAmount: string; token?: string; autoclaim: boolean } | null;
+    limits?: { limited: true; accountCap: string; vaultCap: string; allowlistSize: number } | null;
+  };
 }
 
 export async function fetchHealth(signal?: AbortSignal): Promise<Health> {
@@ -117,7 +125,8 @@ export async function fetchTokens(signal?: AbortSignal): Promise<{ tokens: Token
     }
   }
   const h = await fetchHealth(signal);
-  const ids = h.network.allowedTokens?.length ? h.network.allowedTokens : [XLM_TESTNET];
+  const native = h.network.passphrase === 'Public Global Stellar Network ; September 2015' ? XLM_MAINNET : XLM_TESTNET;
+  const ids = h.network.allowedTokens?.length ? h.network.allowedTokens : [native];
   return { tokens: ids.map(metaFor) };
 }
 

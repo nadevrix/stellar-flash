@@ -13,6 +13,7 @@
  */
 import type { Sequencer } from '../core/sequencer.ts';
 import type { Store } from '../db/store.ts';
+import { canCredit, type FlashLimits } from '../limits.ts';
 import { L1Error, type L1Client } from './l1.ts';
 
 export type OperatorLog = (ev: { at: number; kind: string; message: string; data?: Record<string, unknown> }) => void;
@@ -130,6 +131,7 @@ export interface OperatorConfig {
   maxInclusionFeeStroops: number;
   perTick?: number;
   log?: OperatorLog;
+  limits?: FlashLimits | null;
 }
 
 export class BridgeOperator {
@@ -146,6 +148,7 @@ export class BridgeOperator {
   private readonly fee: number;
   private readonly perTick: number;
   private readonly log: OperatorLog;
+  private readonly limits: FlashLimits | null;
 
   constructor(cfg: OperatorConfig) {
     this.store = cfg.store;
@@ -161,6 +164,7 @@ export class BridgeOperator {
     this.fee = cfg.maxInclusionFeeStroops;
     this.perTick = cfg.perTick ?? 3;
     this.log = cfg.log ?? (() => {});
+    this.limits = cfg.limits ?? null;
   }
 
   private emit(kind: 'onramp' | 'offramp' | 'error', message: string, data?: Record<string, unknown>) {
@@ -204,6 +208,12 @@ export class BridgeOperator {
       const amount = BigInt(row.amount);
       if (amount < this.minAmount) {
         this.store.updateOnramp(row.paymentId, { status: 'skipped', error: `por debajo del mínimo ${this.minAmount}`, updatedAt: Date.now() });
+        continue;
+      }
+      const gate = canCredit(this.limits, row.from, this.token, amount, this.seqr.state);
+      if (!gate.ok) {
+        this.store.updateOnramp(row.paymentId, { status: 'skipped', error: gate.message, updatedAt: Date.now() });
+        this.emit('onramp', `onramp rechazado (${row.from.slice(0, 8)}…): ${gate.message}. El XLM sigue en la cuenta del operador: reembolsar a mano.`);
         continue;
       }
       try {

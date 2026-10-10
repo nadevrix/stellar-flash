@@ -34,8 +34,11 @@ export const toHorizonAmount = (s: string): string => {
   return `${whole}.${frac.toString().padStart(7, '0').replace(/0+$/, '')}`;
 };
 
+import { expertExplorer } from './network.ts';
+
+/** Enlaces a Stellar Expert en la red que publica el secuenciador. */
 export const EXPERT = {
-  tx: (h: string) => `https://stellar.expert/explorer/testnet/tx/${h}`,
-  contract: (id: string) => `https://stellar.expert/explorer/testnet/contract/${id}`,
-  account: (g: string) => `https://stellar.expert/explorer/testnet/account/${g}`,
+  tx: (h: string) => expertExplorer().tx(h),
+  contract: (id: string) => expertExplorer().contract(id),
+  account: (g: string) => expertExplorer().account(g),
 };

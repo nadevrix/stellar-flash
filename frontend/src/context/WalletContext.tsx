@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useHealth } from '../components/LiveStatus.tsx';
+import { setNetworkPassphrase } from '../lib/network.ts';
 import { connectWallet, disconnectWallet, restoreWallet } from '../lib/wallet.ts';
 
 interface WalletCtx {
@@ -11,10 +13,18 @@ interface WalletCtx {
 const Ctx = createContext<WalletCtx | null>(null);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
+  const { health } = useHealth(8000);
   const [address, setAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
 
-  useEffect(() => { void restoreWallet().then((a) => a && setAddress(a)); }, []);
+  useEffect(() => {
+    if (health?.network.passphrase) setNetworkPassphrase(health.network.passphrase);
+  }, [health?.network.passphrase]);
+
+  useEffect(() => {
+    if (!health?.network.passphrase) return;
+    void restoreWallet().then((a) => a && setAddress(a));
+  }, [health?.network.passphrase]);
 
   const connect = useCallback(async () => {
     setConnecting(true);

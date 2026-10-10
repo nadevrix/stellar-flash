@@ -29,6 +29,7 @@ Node type-stripping constraints: no `enum`, no `namespace`, no parameter propert
 | `sequencer/src/settlement/` | L1 client, health, policy, engine, RPC client, onramp/offramp operator |
 | `sequencer/src/api/server.ts` | HTTP JSON API |
 | `sequencer/src/config.ts` | environment variables (see `.env.example`) |
+| `sequencer/src/limits.ts` | Allowlist + account/vault caps (`LIMITED_MAINNET`) |
 
 ## 3. HTTP API (v1)
 
@@ -65,6 +66,8 @@ All responses are JSON; large integers are strings. CORS is open (`*`) for the w
 ```
 
 Errors `422`: `INVALID_SIGNATURE`, `BAD_NONCE`, `INSUFFICIENT_BALANCE`, `INVALID_AMOUNT`, `SELF_TRANSFER`, `TOKEN_NOT_ALLOWED`.
+
+Limited mainnet (`LIMITED_MAINNET`): `GET /v1/health` includes `network.limits`; `GET /v1/accounts/:G` includes remaining caps. `POST /v1/transactions` for a **transfer** from a wallet outside `ALLOWLIST` returns `403 NOT_ALLOWLISTED`. Withdrawals are not gated (so a payment to an unlisted `G…` is not trapped). Onramp skips over-cap / unlisted deposits; the XLM stays on the operator until refunded by hand.
 
 Example with curl (mock mode):
 ```bash

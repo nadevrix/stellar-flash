@@ -51,6 +51,14 @@ export interface SequencerConfig {
   offrampAutoclaim: boolean;
   /** Mínimo de un pago onramp (stroops). Por debajo se ignora. */
   minOnrampStroops: number;
+  /**
+   * Piloto cerrado: allowlist + topes. Obligatorio si la passphrase es Public.
+   * El demo de testnet NO debe llevar esto: es otra instancia, otra DB, otra llave.
+   */
+  limitedMainnet: boolean;
+  allowlist: string[];
+  accountCapStroops: bigint;
+  vaultCapStroops: bigint;
 }
 
 const env = (k: string, d?: string): string | undefined => process.env[k] ?? d;
@@ -101,8 +109,30 @@ export function loadConfig(overrides: Partial<SequencerConfig> = {}): SequencerC
     onrampEnabled: flag('ONRAMP_ENABLED', l1Mode === 'rpc'),
     offrampAutoclaim: flag('OFFRAMP_AUTOCLAIM', l1Mode === 'rpc'),
     minOnrampStroops: num('MIN_ONRAMP_STROOPS', 10_000),
+    limitedMainnet: flag('LIMITED_MAINNET', false),
+    allowlist: (env('ALLOWLIST', '') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    accountCapStroops: BigInt(env('ACCOUNT_CAP_STROOPS', '0') ?? '0'),
+    vaultCapStroops: BigInt(env('VAULT_CAP_STROOPS', '0') ?? '0'),
     ...overrides,
   };
   if (cfg.l1Mode === 'rpc' && !cfg.sequencerSecret) throw new Error('SEQUENCER_SECRET es obligatorio en L1_MODE=rpc');
+  const isPublic = cfg.networkPassphrase === Networks.PUBLIC;
+  if (isPublic && !cfg.limitedMainnet) {
+    throw new Error('NETWORK_PASSPHRASE es Public: arranca con LIMITED_MAINNET=true en una instancia aparte. No reutilices el demo de testnet.');
+  }
+  if (isPublic && cfg.rpcUrls.some((u) => /testnet/i.test(u))) {
+    throw new Error('RPC_URLS apunta a testnet con passphrase Public. Eso mezclaría redes.');
+  }
+  if (isPublic && /testnet/i.test(cfg.horizonUrl)) {
+    throw new Error('HORIZON_URL es testnet con passphrase Public.');
+  }
+  if (cfg.limitedMainnet) {
+    if (cfg.allowlist.length === 0) throw new Error('LIMITED_MAINNET requiere ALLOWLIST (G… separadas por coma)');
+    if (cfg.accountCapStroops <= 0n) cfg.accountCapStroops = 2_000_000n; // 0.2 XLM
+    if (cfg.vaultCapStroops <= 0n) cfg.vaultCapStroops = 10_000_000n; // 1 XLM
+    if (cfg.accountCapStroops > cfg.vaultCapStroops) {
+      throw new Error('ACCOUNT_CAP_STROOPS no puede ser mayor que VAULT_CAP_STROOPS');
+    }
+  }
   return cfg;
 }

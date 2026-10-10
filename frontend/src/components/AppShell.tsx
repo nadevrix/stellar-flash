@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { Mark } from './Logo.tsx';
 import { useHealth } from './LiveStatus.tsx';
 import { useWallet } from '../context/WalletContext.tsx';
+import { isPublicNetwork } from '../lib/network.ts';
 
 const NAV = [
   { to: '/', label: 'Introduction', end: true, icon: IconHome },
@@ -81,8 +82,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             {/* Network pill — como Testnet en Lab */}
             <span className="hidden items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm sm:inline-flex">
-              <span className="h-2 w-2 rounded-full bg-pink-400" />
-              Testnet
+              <span className={`h-2 w-2 rounded-full ${health && isPublicNetwork(health.network.passphrase) ? 'bg-gold' : 'bg-pink-400'}`} />
+              {health && isPublicNetwork(health.network.passphrase) ? 'Mainnet' : 'Testnet'}
+              {health?.network.limits?.limited ? ' · limited' : ''}
             </span>
 
             {/* Health mini */}

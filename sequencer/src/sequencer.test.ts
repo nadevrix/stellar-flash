@@ -13,6 +13,8 @@ import { MockL1Client } from './settlement/l1.ts';
 import { BridgeOperator, MockPaymentFeed, parseStroops } from './settlement/operator.ts';
 import { decideSettlement } from './settlement/policy.ts';
 import { createApiServer } from './api/server.ts';
+import { loadConfig } from './config.ts';
+import { buildLimits, canSpend } from './limits.ts';
 
 const TOKEN = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
 const BRIDGE = 'CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA';
@@ -445,6 +447,75 @@ test('operador: XLM clásico → FXLM, y el retiro se reclama sin que el usuario
   assert.equal(store.getOfframp(w.txId)?.status, 'claimed');
   assert.ok(log.some((e) => e.kind === 'onramp'));
   assert.ok(log.some((e) => e.kind === 'offramp'));
+});
+
+test('límites: Public exige LIMITED_MAINNET; allowlist y topes bloquean el onramp', async () => {
+  assert.throws(
+    () => loadConfig({ networkPassphrase: Networks.PUBLIC }),
+    (e: unknown) => e instanceof Error && /LIMITED_MAINNET/.test(e.message),
+  );
+
+  const seqKp = Keypair.random();
+  const alice = Keypair.random();
+  const eve = Keypair.random();
+  const store = new Store(':memory:');
+  const seqr = newSequencer(store);
+  const l1 = new MockL1Client({ challengePeriodLedgers: 5, sequencerAccount: seqKp.publicKey() });
+  const feed = new MockPaymentFeed();
+  const limits = buildLimits({
+    allowlist: [alice.publicKey()],
+    accountCapStroops: 5_000n,
+    vaultCapStroops: 20_000n,
+  });
+  const operator = new BridgeOperator({
+    store,
+    l1,
+    sequencer: seqr,
+    feed,
+    sequencerAccount: seqKp.publicKey(),
+    token: TOKEN,
+    minAmount: 1n,
+    enabled: true,
+    autoclaim: false,
+    skipHistorical: false,
+    maxInclusionFeeStroops: 1_000,
+    limits,
+  });
+  const monitor = new L1HealthMonitor(l1, TH, 1_000);
+  const engine = new SettlementEngine(
+    seqr,
+    l1,
+    monitor,
+    { ...POLICY, sealIntervalMs: 0, challengePeriodLedgers: 5, depositScanStartLedger: 0, operator },
+  );
+
+  feed.push({ id: 'eve', hash: '11'.repeat(32), from: eve.publicKey(), amount: 1_000n, cursor: 'c-eve' });
+  feed.push({ id: 'alice-big', hash: '22'.repeat(32), from: alice.publicKey(), amount: 10_000n, cursor: 'c-big' });
+  await engine.tick();
+  assert.equal(store.listOnramp(eve.publicKey())[0]?.status, 'skipped');
+  assert.equal(store.listOnramp(alice.publicKey())[0]?.status, 'skipped', 'supera el tope por cuenta');
+  assert.equal(seqr.state.get(eve.publicKey(), TOKEN).balance, 0n);
+
+  // Un tick vacío adelanta el cursor de depósitos al ledger actual; el mock registra
+  // el relay en ese mismo ledger. Avanzamos uno para que el escáner lo vea.
+  l1.advanceLedgers(1);
+  feed.push({ id: 'alice-ok', hash: '33'.repeat(32), from: alice.publicKey(), amount: 4_000n, cursor: 'c-ok' });
+  await engine.tick();
+  assert.equal(seqr.state.get(alice.publicKey(), TOKEN).balance, 4_000n);
+  assert.equal(canSpend(limits, alice.publicKey()).ok, true);
+  assert.equal(canSpend(limits, eve.publicKey()).ok, false);
+  assert.throws(
+    () => loadConfig({
+      networkPassphrase: Networks.PUBLIC,
+      limitedMainnet: true,
+      allowlist: [alice.publicKey()],
+      rpcUrls: ['https://soroban-testnet.stellar.org'],
+      horizonUrl: 'https://horizon.stellar.org',
+      accountCapStroops: 5_000n,
+      vaultCapStroops: 20_000n,
+    }),
+    (e: unknown) => e instanceof Error && /testnet/.test(e.message),
+  );
 });
 
 test('sqlite: backup WAL-safe a fichero', async () => {

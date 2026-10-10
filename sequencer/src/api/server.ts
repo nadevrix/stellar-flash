@@ -22,6 +22,7 @@ import { FlashError, isValidL2Address, toHex, txFromJson, type SignedTx } from '
 import type { Sequencer } from '../core/sequencer.ts';
 import type { SettlementEngine } from '../settlement/engine.ts';
 import type { BatchRecord } from '../db/store.ts';
+import { accountLimitView, canSpend, limitsView, type FlashLimits } from '../limits.ts';
 
 export interface ApiContext {
   sequencer: Sequencer;
@@ -41,6 +42,7 @@ export interface ApiContext {
       token: string;
       autoclaim: boolean;
     } | null;
+    limits?: FlashLimits | null;
   };
 }
 
@@ -146,6 +148,7 @@ export function createApiServer(ctx: ApiContext): Server {
           allowedTokens: info.allowedTokens,
           sequencerAccount: info.sequencerAccount ?? null,
           onramp: info.onramp ?? null,
+          limits: limitsView(info.limits ?? null),
         },
       });
     }
@@ -160,7 +163,13 @@ export function createApiServer(ctx: ApiContext): Server {
       if (req.method === 'GET' && !sub) {
         const balances = sequencer.state.leaves().filter((l) => l.account === id).map((l) => ({ token: l.token, balance: l.balance.toString(), nonce: l.nonce.toString() }));
         const txs = sequencer.store.txsForAccount(id, Number(url.searchParams.get('limit') ?? 25)).map((t) => ({ id: t.id, seq: t.seq, type: t.type, from: t.from, to: t.to, token: t.token, amount: t.amount, batchIndex: t.batchIndex, createdAt: t.createdAt }));
-        return json(res, 200, { account: id, balances, transactions: txs });
+        const token = info.onramp?.token ?? info.allowedTokens[0];
+        return json(res, 200, {
+          account: id,
+          balances,
+          transactions: txs,
+          limits: token ? accountLimitView(info.limits ?? null, id, token, sequencer.state) : null,
+        });
       }
     }
 
@@ -175,6 +184,12 @@ export function createApiServer(ctx: ApiContext): Server {
           throw new HttpError(400, 'BAD_TX', e instanceof Error ? e.message : 'tx inválida');
         }
         if (tx.type === 'deposit') throw new HttpError(400, 'BAD_TX', 'los depósitos se acreditan desde L1, no por API');
+        // Retiro: cualquiera con FXLM puede salir (si no, un pago a un no-listado atrapa el XLM).
+        // Pago L2: solo la allowlist origina. El destinatario no se filtra.
+        if (tx.type !== 'withdraw') {
+          const spend = canSpend(info.limits ?? null, tx.from);
+          if (!spend.ok) throw new HttpError(403, spend.code, spend.message);
+        }
         try {
           const receipt = sequencer.submit(tx as SignedTx);
           return json(res, 201, { receipt });
